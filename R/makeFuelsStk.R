@@ -1,8 +1,8 @@
-makeFuelsStk <- function(FT, FTcode) {
-  ras <- paste0(FT, "Ras")
-  eval(parse(text = paste0(ras, " <- fuelTypesMaps$finalFuelType")))
+#' @importFrom raster deratify
 
-  ras <- deratify(get(ras))
+makeFuelsStk <- function(FT, FTcode, fuelTypesRas) {
+  ras <- deratify(fuelTypesRas)
   ras[!ras[] %in% FTcode] <- NA
+  names(ras) <- FT
   ras
 }

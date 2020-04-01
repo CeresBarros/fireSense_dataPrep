@@ -1,0 +1,16 @@
+#' @importFrom sf as_Spatial
+#' @importFrom gstat gstat
+#' @importFrom raster interpolate mask stack
+
+weatherInterpolationWrapper <- function (weatherDataMDC) {
+  weatherDataMDCStk <- lapply(unique(weatherDataMDC$year), FUN = function(yr) {
+    weatherSPDF <- as_Spatial(weatherDataMDC[weatherDataMDC$year == yr,])
+    form <- as.formula("julMDC ~ 1")
+    interpModel <- gstat(formula = form, data = weatherSPDF, set = list(idp = 0),
+                         nmax = 8)   ## using 8 nearest neighbours
+    weatherRas <- interpolate(object = RTMLLowRes, model = interpModel)  ## interpolate on RTM
+    mask(weatherRas, RTMLLowRes)
+  })
+
+  raster::stack(weatherDataMDCStk)
+}
