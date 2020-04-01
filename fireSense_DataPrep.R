@@ -115,7 +115,7 @@ doEvent.fireSense_dataPrep = function(sim, eventTime, eventType) {
     },
     prepFireSenseData = {
       # do stuff for this event
-      sim <- prepData(sim)
+      sim <- prepFireSenseData(sim)
 
       # schedule future event
       sim <- scheduleEvent(sim, time(sim) + P(sim)$fireTimestep,
@@ -137,8 +137,8 @@ dataPrepInit <- function(sim) {
   return(invisible(sim))
 }
 
-prepData <- function(sim) {
-  cacheTags <- c(currentModule(sim), "function:prepData")
+prepFireSenseData <- function(sim) {
+  cacheTags <- c(currentModule(sim), "function:prepFireSenseData")
 
   ## STUDY AREA PREP -----------------------------------------
   ## reduce resolution of rasterToMatchLarge and make a polygon grid
