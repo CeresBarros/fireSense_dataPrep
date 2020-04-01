@@ -138,6 +138,8 @@ dataPrepInit <- function(sim) {
 }
 
 prepData <- function(sim) {
+  cacheTags <- c(currentModule(sim), "function:prepData")
+
   ## STUDY AREA PREP -----------------------------------------
   ## reduce resolution of rasterToMatchLarge and make a polygon grid
   RTMLLowRes <- projectRaster(sim$rasterToMatchLarge,
@@ -205,8 +207,25 @@ prepData <- function(sim) {
                                      fuelTypesCoverStk$C3,
                                      fuelTypesCoverStk$C4,
                                      fuelTypesCoverStk$C7)
-  ## export to sim
-  sim$fuelTypesCoverStk <- fuelTypesCoverStk
+
+  ## RESIZE TO RASTER TO MATCH ---------------------------------------
+  sim$fuelTypesCoverStk <- Cache(postProcess,
+                                 x = fuelTypesCoverStk,
+                                 rasterToMatch = sim$rasterToMatch,
+                                 method = "bilinear",
+                                 filename2 = NULL,
+                                 overwrite = TRUE,
+                                 userTags = c(cacheTags, "fuelTypesCoverStk"),
+                                 omitArgs = c("userTags"))
+
+  sim$weatherDataMDCStk <- Cache(postProcess,
+                                 x = sim$weatherDataMDCStk,
+                                 rasterToMatch = sim$rasterToMatch,
+                                 method = "bilinear",
+                                 filename2 = NULL,
+                                 overwrite = TRUE,
+                                 userTags = c(cacheTags, "weatherDataMDCStk"),
+                                 omitArgs = c("userTags"))
 
   ## STATISTICAL MODEL DATA PREP --------------------------------------
   ## Joining all the data into data.table
