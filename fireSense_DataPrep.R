@@ -400,12 +400,21 @@ prepFireSenseData <- function(sim) {
                            alsoExtract = "similar",
                            url = extractURL("fireLocations"),
                            destinationPath = dPath,
-                           fun = "sf::read_sf",
                            studyArea = sim$studyArealarge,
-                           useSAcrs = TRUE,
                            filename2 = TRUE, overwrite = TRUE,
                            userTags = c(cacheTags, "prepInputsfireLocations"), # use at least 1 unique userTag
                            omitArgs = c("destinationPath", "targetFile", "userTags"))
+
+    ## there's an issue with fireLocations - can't proj to SALarge to crop (makes infinite coords...).
+    ## need to do it the other way around
+    SALarge <- spTransform(sim$studyAreaLarge, CRSobj = crs(fireLocations))
+
+    ## "mask" a posteriori - having isues with SALarge when converted to SF , so will do in sp
+    fireLocations <- crop(fireLocations, SALarge)
+
+    ## project back to SA crs and make sf
+    fireLocations <- spTransform(fireLocations, CRSobj = crs(sim$studyAreaLarge))
+    fireLocations <- st_as_sf(fireLocations, agr = "constant")
 
     ## filter by lightning caused fires
     fireLocations <- fireLocations[fireLocations$CAUSE == "L",]
