@@ -241,6 +241,11 @@ prepFireSenseData <- function(sim) {
     sim$fireLocations <- spTransform(sim$fireLocations, CRSobj = crs(sim$weatherDataMDCStk))
   }
 
+  if (!compareRaster(sim$weatherDataMDCStk, sim$fuelTypesCoverStk, stopiffalse = FALSE)) {
+    stop("sim$weatherDataMDCStk and sim$fuelTypesCoverStk do not match in their properties.
+         Please debug fireSense_DataPrep::prepFireSenseData")
+  }
+
   weatherDT <- raster::extract(sim$weatherDataMDCStk, sim$fireLocations, cellnumbers = TRUE)
   weatherDT <- unique(as.data.table(weatherDT))
   setnames(weatherDT, old = grep("var1.pred", names(weatherDT), value = TRUE),
