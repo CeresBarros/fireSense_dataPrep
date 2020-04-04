@@ -256,7 +256,7 @@ prepFireSenseData <- function(sim) {
   weatherDT <- melt(weatherDT, id.vars = "cells", value.name = "julMDC", variable.name = "year")
   weatherDT[, year :=  sub("julMDC_yr", "", year)]
 
-  fuelTypesDT <- raster::extract(fuelTypesCoverStk, sim$fireLocations, cellnumbers = TRUE)
+  fuelTypesDT <- raster::extract(sim$fuelTypesCoverStk, sim$fireLocations, cellnumbers = TRUE)
   fuelTypesDT <- unique(as.data.table(fuelTypesDT))
   fuelTypesDT[, n_fires := .N, by = cells]
 
