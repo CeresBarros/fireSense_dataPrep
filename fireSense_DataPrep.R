@@ -169,7 +169,6 @@ prepFireSenseData <- function(sim) {
   fuelTypesStk <- stack(fuelTypesStk)
 
   ## re-do non-fuels (NF) to add NAs
-  fuelTypesStk$NF <- deratify(sim$fuelTypesMaps$finalFuelType)
   fuelTypesStk$NF[!fuelTypesStk$NF[] %in% rasLevels[FuelTypeFBP != "NF"]$ID] <- 99  ## everything that is not a fuel (even NAs) gets 99, so that the proportions can sum to 1.
   fuelTypesStk$NF[fuelTypesStk$NF[] %in% rasLevels[FuelTypeFBP != "NF"]$ID] <- NA   ## fuels get NA
 
