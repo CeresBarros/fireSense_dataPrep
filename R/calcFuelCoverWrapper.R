@@ -12,6 +12,8 @@ calcFuelCoverWrapper <- function(fuelTypesStk, RTMLLowResPolyGrid,
     if (is.null(dots$gc))
       dots$gc <- TRUE
 
+    dots$globals <- list(fuelTypesStk = fuelTypesStk, RTMLLowResPolyGrid = RTMLLowResPolyGrid)
+
     do.call("plan", dots)
     fuelTypesCover <- future_lapply(unstack(fuelTypesStk), FUN = function(ras) {
       exact_extract(ras, RTMLLowResPolyGrid, "count")

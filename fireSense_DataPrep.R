@@ -184,8 +184,9 @@ prepFireSenseData <- function(sim) {
                           fuelTypesStk = fuelTypesStk,
                           RTMLLowResPolyGrid = RTMLLowResPolyGrid,
                           cacheRepo = cachePath(sim),
+                          parallel = TRUE,
                           userTags = c(current(sim), "fuelTypesCover"),
-                          omitArgs = "userTags")
+                          omitArgs = c("userTags", "parallel"))
 
   names(fuelTypesCover) <- names(fuelTypesStk)
   fuelTypesCover <- as.data.table(fuelTypesCover)
