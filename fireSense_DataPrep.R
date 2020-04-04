@@ -226,10 +226,16 @@ prepFireSenseData <- function(sim) {
                                  userTags = c(cacheTags, "weatherDataMDCStk"),
                                  omitArgs = c("userTags"))
 
+  sim$fireLocations <- as(as_Spatial(sim$fireLocations[, "ID"]), "SpatialPoints")  ## also necessary to join data afterwards
+  sim$fireLocations <- Cache(postProcess,
+                             x = sim$fireLocations,
+                             studyArea = sim$studyArea,
+                             filename2 = NULL,
+                             userTags = c(cacheTags, "fireLocationsRTM"),
+                             omitArgs = c("userTags"))
+
   ## STATISTICAL MODEL DATA PREP --------------------------------------
   ## Joining all the data into data.table
-  sim$fireLocations <- as(as_Spatial(sim$fireLocations[, "ID"]), "SpatialPoints")
-
   if (!compareCRS(sim$fireLocations, sim$weatherDataMDCStk)) {
     message(blue("Reprojecting 'fireLocations' to rasterToMatch projection"))
     sim$fireLocations <- spTransform(sim$fireLocations, CRSobj = crs(sim$weatherDataMDCStk))
