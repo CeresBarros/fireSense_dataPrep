@@ -210,24 +210,19 @@ prepFireSenseData <- function(sim) {
                                      fuelTypesCoverStk$C4,
                                      fuelTypesCoverStk$C7)
 
-  ## RESIZE TO RASTER TO MATCH ---------------------------------------
+  ## RESIZE TO STUDY AREA (so resolution doesn't change) ---------------------------------------
+  ## this is the actual size of the fuels data even if NA's/0s where added around it from the cover calculations
   sim$fuelTypesCoverStk <- Cache(postProcess,
                                  x = fuelTypesCoverStk,
-                                 rasterToMatch = sim$rasterToMatch,
-                                 maskWithRTM = TRUE,
-                                 method = "bilinear",
+                                 studyArea = sim$studyArea,
                                  filename2 = NULL,
-                                 overwrite = TRUE,
                                  userTags = c(cacheTags, "fuelTypesCoverStk"),
                                  omitArgs = c("userTags"))
 
   sim$weatherDataMDCStk <- Cache(postProcess,
                                  x = sim$weatherDataMDCStk,
-                                 rasterToMatch = sim$rasterToMatch,
-                                 maskWithRTM = TRUE,
-                                 method = "bilinear",
+                                 studyArea = sim$studyArea,
                                  filename2 = NULL,
-                                 overwrite = TRUE,
                                  userTags = c(cacheTags, "weatherDataMDCStk"),
                                  omitArgs = c("userTags"))
 
