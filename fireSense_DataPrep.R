@@ -71,7 +71,7 @@ defineModule(sim, list(
     expectsInput("studyArea", "SpatialPolygonsDataFrame",
                  desc = paste("Polygon to use as the study area.",
                               "Defaults to  an area in Southwestern Alberta, Canada."),
-                 sourceURL = ""),
+                 sourceURL = NA),
     expectsInput("studyAreaLarge", "SpatialPolygonsDataFrame",
                  desc = paste("multipolygon (larger area than studyArea) used for parameter estimation,",
                               "with attribute LTHFC describing the fire return interval.",
@@ -154,6 +154,8 @@ prepFireSenseData <- function(sim) {
 
   sim$weatherDataMDCStk <- Cache(weatherInterpolationWrapper,
                                  weatherDataMDC = weatherDataMDC,
+                                 RTMLLowRes = RTMLLowRes,
+                                 form = as.formula("julMDC ~ 1"),
                                  cacheRepo = cachePath(sim),
                                  userTags = c(current(sim), "weatherDataMDCStk"),
                                  omitArgs = "userTags")
@@ -167,7 +169,6 @@ prepFireSenseData <- function(sim) {
   fuelTypesStk <- stack(fuelTypesStk)
 
   ## re-do non-fuels (NF) to add NAs
-  fuelTypesStk$NF <- deratify(sim$fuelTypesMaps$finalFuelType)
   fuelTypesStk$NF[!fuelTypesStk$NF[] %in% rasLevels[FuelTypeFBP != "NF"]$ID] <- 99  ## everything that is not a fuel (even NAs) gets 99, so that the proportions can sum to 1.
   fuelTypesStk$NF[fuelTypesStk$NF[] %in% rasLevels[FuelTypeFBP != "NF"]$ID] <- NA   ## fuels get NA
 
@@ -183,8 +184,9 @@ prepFireSenseData <- function(sim) {
                           fuelTypesStk = fuelTypesStk,
                           RTMLLowResPolyGrid = RTMLLowResPolyGrid,
                           cacheRepo = cachePath(sim),
+                          parallel = TRUE,
                           userTags = c(current(sim), "fuelTypesCover"),
-                          omitArgs = "userTags")
+                          omitArgs = c("userTags", "parallel"))
 
   names(fuelTypesCover) <- names(fuelTypesStk)
   fuelTypesCover <- as.data.table(fuelTypesCover)
@@ -208,34 +210,40 @@ prepFireSenseData <- function(sim) {
                                      fuelTypesCoverStk$C4,
                                      fuelTypesCoverStk$C7)
 
-  ## RESIZE TO RASTER TO MATCH ---------------------------------------
+  ## RESIZE TO STUDY AREA (so resolution doesn't change) ---------------------------------------
+  ## this is the actual size of the fuels data even if NA's/0s where added around it from the cover calculations
   sim$fuelTypesCoverStk <- Cache(postProcess,
                                  x = fuelTypesCoverStk,
-                                 rasterToMatch = sim$rasterToMatch,
-                                 maskWithRTM = TRUE,
-                                 method = "bilinear",
+                                 studyArea = sim$studyArea,
                                  filename2 = NULL,
-                                 overwrite = TRUE,
                                  userTags = c(cacheTags, "fuelTypesCoverStk"),
                                  omitArgs = c("userTags"))
 
   sim$weatherDataMDCStk <- Cache(postProcess,
                                  x = sim$weatherDataMDCStk,
-                                 rasterToMatch = sim$rasterToMatch,
-                                 maskWithRTM = TRUE,
-                                 method = "bilinear",
+                                 studyArea = sim$studyArea,
                                  filename2 = NULL,
-                                 overwrite = TRUE,
                                  userTags = c(cacheTags, "weatherDataMDCStk"),
                                  omitArgs = c("userTags"))
 
+  sim$fireLocations <- as(as_Spatial(sim$fireLocations[, "ID"]), "SpatialPoints")  ## also necessary to join data afterwards
+  sim$fireLocations <- Cache(postProcess,
+                             x = sim$fireLocations,
+                             studyArea = sim$studyArea,
+                             filename2 = NULL,
+                             userTags = c(cacheTags, "fireLocationsRTM"),
+                             omitArgs = c("userTags"))
+
   ## STATISTICAL MODEL DATA PREP --------------------------------------
   ## Joining all the data into data.table
-  sim$fireLocations <- as(as_Spatial(sim$fireLocations[, "ID"]), "SpatialPoints")
-
   if (!compareCRS(sim$fireLocations, sim$weatherDataMDCStk)) {
     message(blue("Reprojecting 'fireLocations' to rasterToMatch projection"))
     sim$fireLocations <- spTransform(sim$fireLocations, CRSobj = crs(sim$weatherDataMDCStk))
+  }
+
+  if (!compareRaster(sim$weatherDataMDCStk, sim$fuelTypesCoverStk, stopiffalse = FALSE)) {
+    stop("sim$weatherDataMDCStk and sim$fuelTypesCoverStk do not match in their properties.
+         Please debug fireSense_DataPrep::prepFireSenseData")
   }
 
   weatherDT <- raster::extract(sim$weatherDataMDCStk, sim$fireLocations, cellnumbers = TRUE)
@@ -248,7 +256,7 @@ prepFireSenseData <- function(sim) {
   weatherDT <- melt(weatherDT, id.vars = "cells", value.name = "julMDC", variable.name = "year")
   weatherDT[, year :=  sub("julMDC_yr", "", year)]
 
-  fuelTypesDT <- raster::extract(fuelTypesCoverStk, sim$fireLocations, cellnumbers = TRUE)
+  fuelTypesDT <- raster::extract(sim$fuelTypesCoverStk, sim$fireLocations, cellnumbers = TRUE)
   fuelTypesDT <- unique(as.data.table(fuelTypesDT))
   fuelTypesDT[, n_fires := .N, by = cells]
 
