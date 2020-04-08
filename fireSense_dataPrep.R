@@ -226,7 +226,9 @@ prepFireSenseData <- function(sim) {
                                  userTags = c(cacheTags, "weatherDataMDCStk"),
                                  omitArgs = c("userTags"))
 
-  sim$fireLocations <- as(as_Spatial(sim$fireLocations[, "ID"]), "SpatialPoints")  ## also necessary to join data afterwards
+  # fireLocationsDT <- st_drop_geometry(sim$fireLocations)
+  # sim$fireLocations <- as(as_Spatial(sim$fireLocations[, c("ID", "YEAR")]), "SpatialPoints")  ## also necessary to join data afterwards
+  sim$fireLocations <- as_Spatial(sim$fireLocations[, c("ID", "YEAR")])
   sim$fireLocations <- Cache(postProcess,
                              x = sim$fireLocations,
                              studyArea = sim$studyArea,
@@ -246,22 +248,38 @@ prepFireSenseData <- function(sim) {
          Please debug fireSense_DataPrep::prepFireSenseData")
   }
 
-  weatherDT <- raster::extract(sim$weatherDataMDCStk, sim$fireLocations, cellnumbers = TRUE)
+  weatherDT <- data.table(pointID = sim$fireLocations$ID,
+                          fireYEAR = sim$fireLocations$YEAR,
+                          raster::extract(sim$weatherDataMDCStk, sim$fireLocations, cellnumbers = TRUE))
   weatherDT <- unique(as.data.table(weatherDT))
   setnames(weatherDT, old = grep("var1.pred", names(weatherDT), value = TRUE),
            new = sub("var1.pred.", "julMDC_yr",
                      grep("var1.pred", names(weatherDT), value = TRUE)))
 
   ## melt years
-  weatherDT <- melt(weatherDT, id.vars = "cells", value.name = "julMDC", variable.name = "year")
-  weatherDT[, year :=  sub("julMDC_yr", "", year)]
+  weatherDT <- melt(weatherDT, id.vars = c("cells", "pointID", "fireYEAR"),
+                    value.name = "julMDC", variable.name = "year")
+  weatherDT[, year := as.numeric(sub("julMDC_yr", "", year))]
 
-  fuelTypesDT <- raster::extract(sim$fuelTypesCoverStk, sim$fireLocations, cellnumbers = TRUE)
+  ## NEW: Jean's tutorials did not seem to match fire year and weather year
+  ## convert weather data year to calendar year
+  ## for some reason BioSIM only output 29 years, so this "excludes" 1990
+  ## we cheat by adding another year to the weather data with is an average of all others
+  cheatWeatherDT <- weatherDT[, list(julMDC = mean(julMDC)), by = .(cells, pointID, fireYEAR)]
+  cheatWeatherDT[, year := 0]
+  weatherDT <- rbind(cheatWeatherDT, weatherDT, use.names = TRUE)
+  weatherDT[, year := P(sim)$weatherDataLastYear - year]
+  weatherDT <- weatherDT[fireYEAR == year]  ## exclude data where fire year and weather year don't match
+
+  fuelTypesDT <- data.table(pointID = sim$fireLocations$ID,
+                            fireYEAR = sim$fireLocations$YEAR,
+                            raster::extract(sim$fuelTypesCoverStk, sim$fireLocations, cellnumbers = TRUE))
   fuelTypesDT <- unique(as.data.table(fuelTypesDT))
-  fuelTypesDT[, n_fires := .N, by = cells]
+  # fuelTypesDT[, n_fires := .N, by = cells]   ## this was what Jean's tutorials suggested
+  fuelTypesDT[, n_fires := .N, by = fireYEAR]
 
   ## join fuel and weather data, convert NAs in no. fires to 0s, and export to sim
-  sim$dataFireSense_IgnitionFit <- weatherDT[fuelTypesDT, on = "cells"]
+  sim$dataFireSense_IgnitionFit <- weatherDT[fuelTypesDT, on = .(cells, pointID, fireYEAR)]
   sim$dataFireSense_IgnitionFit[is.na(n_fires), n_fires := 0]
 
   return(invisible(sim))
