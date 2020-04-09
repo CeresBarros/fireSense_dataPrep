@@ -155,7 +155,7 @@ prepFireSenseData <- function(sim) {
   sim$weatherDataMDCStk <- Cache(weatherInterpolationWrapper,
                                  weatherDataMDC = weatherDataMDC,
                                  RTMLLowRes = RTMLLowRes,
-                                 form = as.formula("julMDC ~ 1"),
+                                 form = quote("julMDC ~ 1"),
                                  cacheRepo = cachePath(sim),
                                  userTags = c(current(sim), "weatherDataMDCStk"),
                                  omitArgs = "userTags")
