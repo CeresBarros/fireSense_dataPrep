@@ -262,7 +262,7 @@ prepFireSenseData <- function(sim) {
   presAbsnDT <- presAbsnDT[, noAbsences := sum(fire) * 2, by = fireYEAR]
   absenceCells <- presAbsnDT[fire == 0,
                              list(cells = sample(cells, noAbsences, replace = FALSE)),
-                                  by = fireYEAR]
+                             by = fireYEAR]
   ## add weather data
   absenceCells <- absenceCells[, list(cells, fireYEAR, raster::extract(sim$weatherDataMDCStk, cells))]
 
@@ -408,17 +408,6 @@ prepFireSenseData <- function(sim) {
     ## covert to 'mask'
     RTMvals <- getValues(sim$rasterToMatch)
     sim$rasterToMatch[!is.na(RTMvals)] <- 1
-  }
-
-  ## if using custom raster resolution, need to allocate biomass proportionally to each pixel
-  ## if no rawBiomassMap/RTM/RTMLarge were suppliedElsewhere, the "original" pixel size respects
-  ## whatever resolution comes with the rawBiomassMap data
-  simPixelSize <- unique(asInteger(res(sim$rasterToMatchLarge)))
-  origPixelSize <- 250L # unique(res(sim$rawBiomassMap)) ## TODO: figure out a good way to not hardcode this
-
-  if (simPixelSize != origPixelSize) { ## make sure we are comparing integers, else else %!=%
-    rescaleFactor <- (origPixelSize / simPixelSize)^2
-    sim$rawBiomassMap <- sim$rawBiomassMap / rescaleFactor
   }
 
   if (!identical(crs(sim$studyArea), crs(sim$rasterToMatch))) {
