@@ -316,7 +316,7 @@ prepFireSenseData <- function(sim) {
     sim <- objectSynonyms(sim, list(c("studyAreaLarge", "studyArea")))
   }
 
-  if (!identical(crs(sim$studyArea), crs(sim$studyAreaLarge))) {
+  if (!compareCRS(sim$studyArea, sim$studyAreaLarge)) {
     warning("studyArea and studyAreaLarge have different projections.\n
             studyAreaLarge will be projected to match crs(studyArea)")
     sim$studyAreaLarge <- spTransform(sim$studyAreaLarge, crs(sim$studyArea))
@@ -430,14 +430,14 @@ prepFireSenseData <- function(sim) {
     sim$rasterToMatch[!is.na(RTMvals)] <- 1
   }
 
-  if (!identical(crs(sim$studyArea), crs(sim$rasterToMatch))) {
+  if (!compareCRS(sim$studyArea, sim$rasterToMatch)) {
     warning(paste0("studyArea and rasterToMatch projections differ.\n",
                    "studyArea will be projected to match rasterToMatch"))
     sim$studyArea <- spTransform(sim$studyArea, crs(sim$rasterToMatch))
     sim$studyArea <- fixErrors(sim$studyArea)
   }
 
-  if (!identical(crs(sim$studyAreaLarge), crs(sim$rasterToMatchLarge))) {
+  if (!compareCRS(sim$studyAreaLarge, sim$rasterToMatchLarge)) {
     warning(paste0("studyAreaLarge and rasterToMatchLarge projections differ.\n",
                    "studyAreaLarge will be projected to match rasterToMatchLarge"))
     sim$studyAreaLarge <- spTransform(sim$studyAreaLarge, crs(sim$rasterToMatchLarge))
