@@ -45,6 +45,8 @@ defineModule(sim, list(
                     "Describes the simulation time at which the first save event should occur."),
     defineParameter(".saveInterval", "numeric", NA, NA, NA,
                     "This describes the simulation time interval between save events."),
+    defineParameter(".studyAreaName", "character", NA, NA, NA,
+                    "Human-readable name for the study area used. If NA, a hash of studyArea will be used."),
     defineParameter(".useCache", "logical", FALSE, NA, NA,
                     paste("Should this entire module be run with caching activated?",
                           "This is generally intended for data-type modules, where stochasticity",
@@ -407,7 +409,8 @@ prepFireSenseData <- function(sim) {
     sim$rasterToMatchLarge[!is.na(RTMvals)] <- 1
 
     sim$rasterToMatchLarge <- Cache(writeOutputs, sim$rasterToMatchLarge,
-                                    filename2 = file.path(cachePath(sim), "rasters", "rasterToMatchLarge.tif"),
+                                    filename2 = .suffix(file.path(dPath, "rasterToMatchLarge.tif"),
+                                                        paste0("_", P(sim)$.studyAreaName)),
                                     datatype = "INT2U", overwrite = TRUE,
                                     userTags = c(cacheTags, "rasterToMatchLarge"),
                                     omitArgs = c("userTags"))
@@ -420,7 +423,8 @@ prepFireSenseData <- function(sim) {
                                maskWithRTM = FALSE,   ## mask with SA
                                method = "bilinear",
                                datatype = "INT2U",
-                               filename2 = file.path(cachePath(sim), "rasterToMatch.tif"),
+                               filename2 = .suffix(file.path(dPath, "rasterToMatch.tif"),
+                                                   paste0("_", P(sim)$.studyAreaName)),
                                overwrite = TRUE,
                                userTags = c(cacheTags, "rasterToMatch"),
                                omitArgs = c("destinationPath", "targetFile", "userTags", "stable"))
