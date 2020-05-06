@@ -11,7 +11,8 @@ defineModule(sim, list(
   authors = structure(list(list(given = "Ceres", family = "Barros",
                                 role = c("aut", "cre"), email = "cbarros@mail.ubc.ca")), class = "person"),
   childModules = character(0),
-  version = list(SpaDES.core = "1.0.0.9004", fireSense_dataPrep = "0.0.1"),
+  version = list(SpaDES.core = "1.0.0.9004", fireSense_dataPrep = "0.0.1",
+                 raster = "3.1-5"),
   timeframe = as.POSIXlt(c(NA, NA)),
   timeunit = "year",
   citation = list("citation.bib"),
@@ -509,8 +510,8 @@ prepFireSenseData <- function(sim) {
                                     userTags = c(cacheTags, "weatherDataMDCPoints"),
                                     omitArgs = "userTags")
 
-      message(blue("Assuming that 'weatherDataMDC' CRS projection is ", st_crs(weatherDataMDCPoints)$proj4string))
-      sim$weatherDataMDCCRS <- st_crs(weatherDataMDCPoints)$proj4string
+      message(blue("Assuming that 'weatherDataMDC' CRS projection is ", crs(weatherDataMDCPoints)))
+      sim$weatherDataMDCCRS <- crs(weatherDataMDCPoints)
       rm(weatherDataMDCPoints); .gc()
     }
 
