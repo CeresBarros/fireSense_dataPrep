@@ -11,7 +11,7 @@ loadAndProcessWeatherDataJulyMDC <- function (d, prevBlock, projectWeatherData, 
                        crs = origCrsProj, agr = "constant")
   ## project if need be
   if (projectWeatherData)
-    prevData <- st_transform(prevData, crs = crsProj)
+    prevData <- st_transform(prevData, crs = st_crs(crsProj))
 
   ## get coordinates and convert back to DT and re-add coordinates
   coords <- st_coordinates(prevData)
