@@ -21,6 +21,10 @@ defineModule(sim, list(
                   "gstat", "future", "future.apply", "exactextractr",
                   "crayon"),
   parameters = rbind(
+    defineParameter("averageWeather4Pred", "logical", FALSE,
+                    desc = paste("Should `weatherDataPred` be an average across layers of 'weatherDataMDCStk'?",
+                    "Useful when predictions are based on climate averaged across a period.",
+                    "If FALSE, 'weatherDataPred' will be identical to 'weatherDataMDCStk'")),
     defineParameter("fireInitialTime", "numeric", 1,
                     desc = "The event time that the first fire disturbance event occurs"),
     defineParameter("fireTimestep", "numeric", NA,
@@ -32,6 +36,12 @@ defineModule(sim, list(
     defineParameter("loadWeatherInChunks", "logical", FALSE, NA, NA,
                     desc = paste("Weather data can be extremely large and require being loaded in chunks. This defaults to FALSE,",
                                  "but if the weatherDataMDC file is > 4Gb, will be set to TRUE")),
+    defineParameter("prepPredictionObjs", "logical", FALSE, NA, NA,
+                    desc = paste("Should objects for fireSense_IgnitionPredict be prepared? If TRUE 'fuelTypesCoverPred'",
+                                 "and 'weatherDataPred' will be exported")),
+    defineParameter("rescalePredictionObjs", "logical", FALSE, NA, NA,
+                    desc = paste("Should objects for prediction be rescaled? If TRUE 'fuelTypesCoverPred'",
+                                 "and 'weatherDataPred' will be reprojected to 'rasterToMatch' resolution")),
     defineParameter("timePeriod", "numeric", 1960:1990, NA, NA,
                     paste("The time period comprising the fire and weather data on which fire frequency",
                           "(i.e. ignition) model - see Marchal et al 2017 - will be fitted.",
@@ -94,15 +104,23 @@ defineModule(sim, list(
                   desc = paste("Data.frame containing the variables used by the fireSense_IgnitionFit module,",
                                "to fit the fire frequency (i.e. ignition probability) model. Columns names",
                                "must match the varible names in the model formula passed to fireSense_IgnitionFit.")),
+    createsOutput(objectName = "fuelTypesCoverPred", objectClass = "RasterStack",
+                  desc = paste("OPTIONAL. Same as 'fuelTypesCoverStk', but rescaled if 'rescalePredictionObjs' is TRUE.")),
     createsOutput(objectName = "fuelTypesCoverStk", objectClass = "RasterStack",
                   desc = paste("A stack of abundance of fire fuels upscaled from 'fuelTypesMaps'.",
                                "Fuel abundances are calculated as the proportion of pixels of each fuel type,",
                                "at the original scale, in each larger pixel of resolution 'fitRes'.",
                                "Note that fuel type names must follow the CF Fire Behaviour Prediction System (2nd Ed.)",
                                "letter and number classification. Also, different conifer fuel types are collapsed into a single one.")),
+    createsOutput(objectName = "rescaleFactor", objectClass = "numeric",
+                  desc = paste("OPTIONAL. Rescaling factor for fireSense_IgnitionPredict when 'rescalePredictionObjs' is TRUE.",
+                               "Calculated as (new_res / old_res) ^ 2")),
     createsOutput(objectName = "weatherDataMDCStk", objectClass = "RasterStack",
                   desc = paste("A stack of interpolated monthly drought code data (from 'weatherDataMDC')",
-                               "per year, in 'studyAreaLarge'."))
+                               "per year, in 'studyAreaLarge'.")),
+    createsOutput(objectName = "weatherDataPred", objectClass = "RasterStack",
+                  desc = paste("OPTIONAL. Same as 'weatherDataMDCStk', but averaged across layers if 'averageWeather4Pred' is TRUE,",
+                               "and rescaled if 'rescalePredictionObjs' is TRUE."))
   )
 ))
 
@@ -299,6 +317,36 @@ prepFireSenseData <- function(sim) {
   dataFireSense_IgnitionFit <- weatherDT[fuelTypesDT, on = .(cells)]
   dataFireSense_IgnitionFit[, n_fires := sum(fire), by = cells]
   sim$dataFireSense_IgnitionFit <- dataFireSense_IgnitionFit
+
+  ## prepare objects for prediction
+  browser()
+  if (P(sim)$prepPredictionObjs) {
+    sim$fuelTypesCoverPred <- sim$fuelTypesCoverStk
+    ## export raster with averaged julMDC across years to predict ignitions once
+    sim$weatherDataPred <- if (P(sim)$averageWeather4Pred) {
+       mean(sim$weatherDataMDCStk)
+    } else {
+      sim$weatherDataMDCStk
+    }
+
+    if (P(sim)$rescalePredictionObjs) {
+      ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim$rescaleFactor)
+      sim$fuelTypesCoverPred <- projectRaster(sim$fuelTypesCoverPred, sim$rasterToMatch,
+                                              method = "bilinear")
+      sim$weatherDataPred <- projectRaster(sim$weatherDataPred, sim$rasterToMatch,
+                                           method = "bilinear")
+
+      ## checks
+      if (!compareRaster(sim$fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
+                        stopiffalse = FALSE))
+        stop("Rescaling of 'fuelTypesCoverPred' didn't work.")
+      if (!compareRaster(sim$weatherDataPred, sim$rasterToMatch, res = TRUE,
+                         stopiffalse = FALSE))
+        stop("Rescaling of 'weatherDataPred' didn't work.")
+
+      sim$rescaleFactor <- res(sim$rasterToMatch)[1]/res(sim$rasterToMatch)[1] ^ 2
+    }
+  }
 
   return(invisible(sim))
 }
