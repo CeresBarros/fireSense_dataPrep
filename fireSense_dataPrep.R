@@ -339,7 +339,7 @@ prepFireSenseData <- function(sim) {
     sim$fuelTypesCoverPred <- sim$fuelTypesCoverStk
     ## export raster with averaged julMDC across years to predict ignitions once
     sim$weatherDataPred <- if (P(sim)$averageWeather4Pred) {
-       mean(sim$weatherDataMDCStk)
+      raster::mean(sim$weatherDataMDCStk)
     } else {
       sim$weatherDataMDCStk
     }
