@@ -361,8 +361,6 @@ prepFireSenseData <- function(sim) {
       if (!compareRaster(sim$weatherDataPred, sim$rasterToMatch, res = TRUE,
                          stopiffalse = FALSE))
         stop("Rescaling of 'weatherDataPred' didn't work.")
-
-      sim$rescaleFactor <- res(sim$rasterToMatch)[1]/res(sim$rasterToMatch)[1] ^ 2
     }
   }
 
