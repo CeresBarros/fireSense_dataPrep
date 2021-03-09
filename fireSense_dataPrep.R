@@ -356,7 +356,7 @@ prepFireSenseData <- function(sim) {
                                            method = "bilinear")
       ## checks
       if (!compareRaster(sim$fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
-                        stopiffalse = FALSE))
+                         stopiffalse = FALSE))
         stop("Rescaling of 'fuelTypesCoverPred' didn't work.")
       if (!compareRaster(sim$weatherDataPred, sim$rasterToMatch, res = TRUE,
                          stopiffalse = FALSE))
