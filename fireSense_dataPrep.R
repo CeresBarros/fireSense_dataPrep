@@ -22,10 +22,11 @@ defineModule(sim, list(
   parameters = rbind(
     defineParameter("averageWeather4Pred", "logical", FALSE,
                     desc = paste("Should `weatherDataPred` be an average across layers of 'weatherDataMDCStk'?",
-                    "Useful when predictions are based on climate averaged across a period.",
-                    "If FALSE, 'weatherDataPred' will be identical to 'weatherDataMDCStk'")),
-    defineParameter("fireInitialTime", "numeric", 1,
-                    desc = "The event time that the first fire disturbance event occurs"),
+                                 "Useful when predictions are based on climate averaged across a period.",
+                                 "If FALSE, 'weatherDataPred' will be identical to 'weatherDataMDCStk'")),
+    defineParameter("fireInitialTime", "numeric", NA,
+                    desc = paste("The event time that the first fire disturbance event occurs",
+                                 "If NA, the module will only prepare data once, during `init`")),
     defineParameter("fireTimestep", "numeric", NA,
                     desc = "The number of time units between successive fire events in a fire module"),
     defineParameter("fitRes", "numeric", 1000, NA, NA,
@@ -129,6 +130,7 @@ doEvent.fireSense_dataPrep = function(sim, eventTime, eventType) {
     init = {
       # do stuff for this event
       sim <- dataPrepInit(sim)
+      sim <- prepFireSenseData(sim)
 
       sim <- scheduleEvent(sim, P(sim)$fireInitialTime,
                            "fireSense_dataPrep", "prepFireSenseData", eventPriority = 1)
@@ -151,14 +153,22 @@ doEvent.fireSense_dataPrep = function(sim, eventTime, eventType) {
 ### initialization
 dataPrepInit <- function(sim) {
   ## checks
-  if (start(sim) == P(sim)$fireInitialTime)
-    warning(red("start(sim) and P(sim)$fireInitialTime are the same.\nThis may create bad scheduling with init events"))
+  if (!is.na(P(sim)$fireInitialTime)) {
+    if (start(sim) == P(sim)$fireInitialTime) {
+      warning(red("start(sim) and P(sim)$fireInitialTime are the same.\nThis may create bad scheduling with init events"))
+    }
+  }
 
   return(invisible(sim))
 }
 
 prepFireSenseData <- function(sim) {
   cacheTags <- c(currentModule(sim), "function:prepFireSenseData")
+
+  ## CHECKS --------------------------------------------------
+  if (is.null(sim$fuelTypesMaps)) {
+    stop("'sim$fuelTypesMaps' needs to be supplied.")
+  }
 
   ## STUDY AREA PREP -----------------------------------------
   ## reduce resolution of rasterToMatchLarge and make a polygon grid
@@ -317,8 +327,14 @@ prepFireSenseData <- function(sim) {
   dataFireSense_IgnitionFit[, n_fires := sum(fire), by = cells]
   sim$dataFireSense_IgnitionFit <- dataFireSense_IgnitionFit
 
+  ## check
+  if (!compareRaster(sim$fuelTypesCoverStk, sim$weatherDataMDCStk, res = TRUE, stopiffalse = FALSE)) {
+    stop("Properties of 'fuelTypesCoverStk' and 'weatherDataMDCStk' differ.")
+  }
+
+
+
   ## prepare objects for prediction
-  browser()
   if (P(sim)$prepPredictionObjs) {
     sim$fuelTypesCoverPred <- sim$fuelTypesCoverStk
     ## export raster with averaged julMDC across years to predict ignitions once
@@ -329,6 +345,8 @@ prepFireSenseData <- function(sim) {
     }
 
     if (P(sim)$rescalePredictionObjs) {
+      sim$rescaleFactor <- res(sim$weatherDataPred)[1]/res(sim$rasterToMatch)[1] ^ 2
+
       ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim$rescaleFactor)
       sim$fuelTypesCoverPred <- projectRaster(sim$fuelTypesCoverPred, sim$rasterToMatch,
                                               method = "bilinear")
@@ -632,7 +650,7 @@ prepFireSenseData <- function(sim) {
       dataLaF <- laf_open(dataModel)
 
       ## also should be at rasterToMatchLarge
-      weatherDataMDC <- Cache(process_blocks,
+      sim$weatherDataMDC <- Cache(process_blocks,
                               x = dataLaF,
                               fun = loadAndProcessWeatherDataJulyMDC,
                               projectWeatherData = FALSE,
