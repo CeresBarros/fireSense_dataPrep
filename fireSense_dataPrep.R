@@ -348,11 +348,12 @@ prepFireSenseData <- function(sim) {
       sim$rescaleFactor <- res(sim$weatherDataPred)[1]/res(sim$rasterToMatch)[1] ^ 2
 
       ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim$rescaleFactor)
-      sim$fuelTypesCoverPred <- projectRaster(sim$fuelTypesCoverPred, sim$rasterToMatch,
+      sim$fuelTypesCoverPred <- projectInputs(sim$fuelTypesCoverPred,
+                                              rasterToMatch = sim$rasterToMatch,
                                               method = "bilinear")
-      sim$weatherDataPred <- projectRaster(sim$weatherDataPred, sim$rasterToMatch,
+      sim$weatherDataPred <- projectInputs(sim$weatherDataPred,
+                                           rasterToMatch = sim$rasterToMatch,
                                            method = "bilinear")
-
       ## checks
       if (!compareRaster(sim$fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
                         stopiffalse = FALSE))
