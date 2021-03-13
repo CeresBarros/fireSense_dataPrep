@@ -67,8 +67,8 @@ defineModule(sim, list(
     expectsInput(objectName = "fireLocations", objectClass = "sf",
                  desc = paste("A spatial points sf object with fire locations across a time period ('timePeriod')",
                               "for fitting a fire frequency (i.e. ignition) model - see Marchal et al 2017 Ecography.",
-                              "Defaults to the Canadian National Fire Database fire point data, which is NOT restricted",
-                              "to large (>200ha) only (see https://cwfis.cfs.nrcan.gc.ca/datamart for more info.)"),
+                              "Defaults to the MOST RECENT version of the Canadian National Fire Database fire point data,",
+                              "which is NOT restricted to large (>200ha) only (see https://cwfis.cfs.nrcan.gc.ca/datamart for more info.)"),
                  sourceURL = "https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_pnt/current_version/NFDB_point.zip"),
     expectsInput(objectName = "fuelTypesMaps", objectClass = "list",
                  desc = "List of RasterLayers of fuel types and coniferDominance per pixel.",
@@ -519,10 +519,9 @@ prepFireSenseData <- function(sim) {
 
   ## FIRE DATA ----------------------------------------------------
   if (!suppliedElsewhere("fireLocations", sim)) {
+    ## not supplying a targetFile should deal with archive file contents (the .shp) changing as data is updated
     fireLocations <- Cache(prepInputs,
-                           targetFile = "NFDB_point_20190801.shp",
                            archive = "NFDB_point.zip",
-                           alsoExtract = "similar",
                            url = extractURL("fireLocations"),
                            destinationPath = dPath,
                            studyArea = sim$studyArealarge,
