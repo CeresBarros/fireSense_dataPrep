@@ -13,5 +13,7 @@ weatherInterpolationWrapper <- function (weatherDataMDC, RTMLLowRes, form) {
     mask(weatherRas, RTMLLowRes)
   })
 
-  raster::stack(weatherDataMDCStk)
+  weatherDataMDCStk <- raster::stack(weatherDataMDCStk)
+  names(weatherDataMDCStk) <- unique(weatherDataMDC$year)
+  weatherDataMDCStk
 }
