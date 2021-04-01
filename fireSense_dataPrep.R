@@ -40,6 +40,9 @@ defineModule(sim, list(
     defineParameter("prepPredictionObjs", "logical", FALSE, NA, NA,
                     desc = paste("Should objects for fireSense_IgnitionPredict be prepared? If TRUE 'fuelTypesCoverPred'",
                                  "and 'weatherDataPred' will be exported")),
+    defineParameter("propAbsences", "numeric", 2, NA, NA,
+                    desc = paste("Should fire absences be generated? Will sample the number of fire presences * propAbsences",
+                                 "(per year). Defaults to the double of presences per fire year. If NA, will use all non-presences as absences.")),
     defineParameter("rescalePredictionObjs", "logical", FALSE, NA, NA,
                     desc = paste("Should objects for prediction be rescaled? If TRUE 'fuelTypesCoverPred'",
                                  "and 'weatherDataPred' will be reprojected to 'rasterToMatch' resolution")),
@@ -289,10 +292,15 @@ prepFireSenseData <- function(sim) {
   presAbsnDT <- presAbsnDT[data.table(cells = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(cells)]
   presAbsnDT <- melt(presAbsnDT, id.vars = "cells", variable.name = "fireYEAR", value.name = "fire")
   presAbsnDT[is.na(fire), fire := 0]
-  presAbsnDT <- presAbsnDT[, noAbsences := sum(fire) * 2, by = fireYEAR]
-  absenceCells <- presAbsnDT[fire == 0,
-                             list(cells = sample(cells, noAbsences, replace = FALSE)),
-                             by = fireYEAR]
+
+  if (!is.na(P(sim)$propAbsences)) {
+    presAbsnDT <- presAbsnDT[, noAbsences := sum(fire) * P(sim)$propAbsences, by = fireYEAR]
+    absenceCells <- presAbsnDT[fire == 0,
+                               list(cells = sample(cells, noAbsences, replace = FALSE)),
+                               by = fireYEAR]
+  } else {
+    absenceCells <- presAbsnDT[fire == 0, list(cells = cells, fireYEAR = fireYEAR)]
+  }
   ## add weather data
   absenceCells <- absenceCells[, list(cells, fireYEAR, raster::extract(sim$weatherDataMDCStk, cells))]
 
