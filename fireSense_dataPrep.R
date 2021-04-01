@@ -342,6 +342,11 @@ prepFireSenseData <- function(sim) {
   fireSense_ignitionCovariates <- weatherDT[fuelTypesDT, on = .(cells)]
   fireSense_ignitionCovariates[, n_fires := sum(fire), by = cells]
 
+  ## exclude fires with no data - can happen for points just at the border of SA
+  cols <- setdiff(names(fireSense_ignitionCovariates),
+                  c("cells", "pointID", "fireYEAR", "fire", "n_fires", "year"))
+  noData <- fireSense_ignitionCovariates[, rowSums(.SD, na.rm = TRUE) == 0, .SDcols = cols]
+  sim$fireSense_ignitionCovariates <- fireSense_ignitionCovariates[!noData]
 
   ## check
   if (!compareRaster(sim$fuelTypesCoverStk, sim$weatherDataMDCStk, res = TRUE, stopiffalse = FALSE)) {
