@@ -105,8 +105,8 @@ defineModule(sim, list(
                   desc = paste("Data.frame containing the variables used by the fireSense_IgnitionFit module,",
                                "to fit the fire frequency (i.e. ignition probability) model. Columns names",
                                "must match the varible names in the model formula passed to fireSense_IgnitionFit.")),
-    createsOutput(objectName = "fuelTypesCoverPred", objectClass = "RasterStack",
-                  desc = paste("OPTIONAL. Same as 'fuelTypesCoverStk', but rescaled if 'rescalePredictionObjs' is TRUE.")),
+    createsOutput(objectName = "fireSense_IgnitionAndEscapeCovariates", objectClass = c("RasterStack"),
+                  desc = paste("An object of class RasterStack (named according to variables) prediction variables")),
     createsOutput(objectName = "fuelTypesCoverStk", objectClass = "RasterStack",
                   desc = paste("A stack of abundance of fire fuels upscaled from 'fuelTypesMaps'.",
                                "Fuel abundances are calculated as the proportion of pixels of each fuel type,",
@@ -118,10 +118,7 @@ defineModule(sim, list(
                                "Calculated as (new_res / old_res) ^ 2")),
     createsOutput(objectName = "weatherDataMDCStk", objectClass = "RasterStack",
                   desc = paste("A stack of interpolated monthly drought code data (from 'weatherDataMDC')",
-                               "per year, in 'studyAreaLarge'.")),
-    createsOutput(objectName = "weatherDataPred", objectClass = "RasterStack",
-                  desc = paste("OPTIONAL. Same as 'weatherDataMDCStk', but averaged across layers if 'averageWeather4Pred' is TRUE,",
-                               "and rescaled if 'rescalePredictionObjs' is TRUE."))
+                               "per year, in 'studyAreaLarge'."))
   )
 ))
 
@@ -339,41 +336,42 @@ prepFireSenseData <- function(sim) {
 
   ## prepare objects for prediction
   if (P(sim)$prepPredictionObjs) {
-    sim$fuelTypesCoverPred <- sim$fuelTypesCoverStk
+    fuelTypesCoverPred <- sim$fuelTypesCoverStk
     ## export raster with averaged julMDC across years to predict ignitions once
-    sim$weatherDataPred <- if (P(sim)$averageWeather4Pred) {
+    weatherDataPred <- if (P(sim)$averageWeather4Pred) {
       stack(raster::mean(sim$weatherDataMDCStk))
     } else {
       sim$weatherDataMDCStk
     }
 
-    if (nlayers(sim$weatherDataPred) > 1) {
-      names(sim$weatherDataPred) <- paste0("julMDC_", names(sim$weatherDataMDCStk))
+    if (nlayers(weatherDataPred) > 1) {
+      names(weatherDataPred) <- paste0("julMDC_", names(sim$weatherDataMDCStk))
     } else {
-      names(sim$weatherDataPred) <- "julMDC"
+      names(weatherDataPred) <- "julMDC"
     }
 
     if (P(sim)$rescalePredictionObjs) {
       ## rescaling factor calcualted as (newRes[1]/oldRes[1])^2
       sim$rescaleFactor <- (res(sim$rasterToMatch)[1]/res(sim$weatherDataPred)[1])^2
 
-      ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim$rescaleFactor)
-      sim$fuelTypesCoverPred <- projectInputs(sim$fuelTypesCoverPred,
-                                              rasterToMatch = sim$rasterToMatch,
-                                              method = "bilinear")
-      sim$weatherDataPred <- projectInputs(sim$weatherDataPred,
-                                           rasterToMatch = sim$rasterToMatch,
-                                           method = "bilinear")
+      ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim)$rescaleFactor)
+      fuelTypesCoverPred <- projectInputs(fuelTypesCoverPred,
+                                          rasterToMatch = sim$rasterToMatch,
+                                          method = "bilinear")
+      weatherDataPred <- projectInputs(weatherDataPred,
+                                       rasterToMatch = sim$rasterToMatch,
+                                       method = "bilinear")
       ## checks
-      if (!compareRaster(sim$fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
+      if (!compareRaster(fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
                          stopiffalse = FALSE))
         stop("Rescaling of 'fuelTypesCoverPred' didn't work.")
-      if (!compareRaster(sim$weatherDataPred, sim$rasterToMatch, res = TRUE,
+      if (!compareRaster(weatherDataPred, sim$rasterToMatch, res = TRUE,
                          stopiffalse = FALSE))
         stop("Rescaling of 'weatherDataPred' didn't work.")
     }
   }
 
+  sim$fireSense_IgnitionAndEscapeCovariates <- stack(fuelTypesCoverPred, weatherDataPred)
   return(invisible(sim))
 }
 
