@@ -319,6 +319,11 @@ prepFireSenseData <- function(sim) {
                     value.name = "julMDC", variable.name = "year")
   weatherDT[, year := as.numeric(sub("julMDC_yr", "", year))]
 
+  ## make sure there's no year 0 (yet) - this can happen when using the years written by BioSim
+  if (min(weatherDT$year) == 0) {
+    weatherDT[, year := year + 1]
+  }
+
   ## match fire year and weather year
   ## convert weather data year to calendar year
   ## for some reason BioSIM only output 29 years, so this "excludes" 1990
