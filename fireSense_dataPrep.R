@@ -351,8 +351,8 @@ prepFireSenseData <- function(sim) {
     }
 
     if (P(sim)$rescalePredictionObjs) {
-      ## rescaling factor calcualted as (newRes[1]/oldRes[1])^2
-      sim$rescaleFactor <- (res(sim$rasterToMatch)[1]/res(sim$weatherDataPred)[1])^2
+      ## rescaling factor calculated as (newRes[1]/oldRes[1])^2
+      sim$rescaleFactor <- (res(sim$rasterToMatch)[1]/P(sim)$fitRes)^2
 
       ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim)$rescaleFactor)
       fuelTypesCoverPred <- projectInputs(fuelTypesCoverPred,
