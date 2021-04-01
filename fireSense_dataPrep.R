@@ -31,8 +31,9 @@ defineModule(sim, list(
                     desc = "The number of time units between successive fire events in a fire module"),
     defineParameter("fitRes", "numeric", 1000, NA, NA,
                     paste("Resolution at which fire frequency (i.e. ignition) model - see Marchal et al 2017",
-                          "Ecography - will be fitted. Needs to be larger than the resolution of",
-                          "'rasterToMatch' and in the same units. Defaults to 1000 m.")),
+                          "Ecography - will be fitted. Should to be larger than the resolution of",
+                          "'rasterToMatch' and in the same units. Defaults to 1000m the spatial ",
+                          "resolution of the default weather data.")),
     defineParameter("loadWeatherInChunks", "logical", FALSE, NA, NA,
                     desc = paste("Weather data can be extremely large and require being loaded in chunks. This defaults to FALSE,",
                                  "but if the weatherDataMDC file is > 4Gb, will be set to TRUE")),
@@ -232,7 +233,8 @@ prepFireSenseData <- function(sim) {
   fuelTypesCoverStk <- lapply(fuelTypesCover[, ..cols], FUN = function(x, ras) {
     ras[!is.na(ras)][] <- x
     ras
-  }, ras = RTMLLowRes) %>% raster::stack(.)
+  }, ras = RTMLLowRes) %>%
+    raster::stack(.)
 
   ## collapse coniferous fuels
   fuelTypesCoverStk$coniferous = sum(fuelTypesCoverStk$C2,
@@ -280,7 +282,8 @@ prepFireSenseData <- function(sim) {
 
   weatherDT <- data.table(pointID = sim$fireLocations$ID,
                           fireYEAR = sim$fireLocations$YEAR,
-                          raster::extract(sim$weatherDataMDCStk, sim$fireLocations, cellnumbers = TRUE))
+                          raster::extract(sim$weatherDataMDCStk, sim$fireLocations,
+                                          cellnumbers = TRUE))
   weatherDT <- unique(as.data.table(weatherDT))
   ## generate absences - first make a wide DT with presences/absences per year in separate columns
   ## add other pixels, melt, then add as many absences as the double of the number of presences per year

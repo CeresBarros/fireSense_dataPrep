@@ -2,7 +2,7 @@
 #' @importFrom gstat gstat
 #' @importFrom raster interpolate mask stack
 
-weatherInterpolationWrapper <- function (weatherDataMDC, RTMLLowRes, form) {
+weatherInterpolationWrapper <- function(weatherDataMDC, RTMLLowRes, form) {
   if (class(form) != "formula")
     form <- as.formula(form)
   weatherDataMDCStk <- lapply(unique(weatherDataMDC$year), FUN = function(yr) {
