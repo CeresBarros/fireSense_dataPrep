@@ -310,9 +310,9 @@ prepFireSenseData <- function(sim) {
   ## bind presences and absences, add a binary for fire pres.
   weatherDT <- rbind(weatherDT, absenceCells, use.names = TRUE, fill = TRUE)
   weatherDT[, fire := as.integer(!is.na(pointID))]
-  setnames(weatherDT, old = grep("var1.pred", names(weatherDT), value = TRUE),
-           new = sub("var1.pred.", "julMDC_yr",
-                     grep("var1.pred", names(weatherDT), value = TRUE)))
+  oldNames <- intersect(names(weatherDT), names(sim$weatherDataMDCStk))
+  newNames <- sub("[^[:digit:]]*", "julMDC_yr", oldNames)
+  setnames(weatherDT, old = oldNames, new = newNames)
 
   ## melt years
   weatherDT <- melt(weatherDT, id.vars = c("cells", "pointID", "fireYEAR", "fire"),
