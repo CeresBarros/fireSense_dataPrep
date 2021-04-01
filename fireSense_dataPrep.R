@@ -180,13 +180,13 @@ prepFireSenseData <- function(sim) {
   ## reproject to RTM and rasterize/interpolate at a coarser scale
   weatherDataMDC <- st_transform(sim$weatherDataMDC, crs = as.character(crs(RTMLLowRes)))
 
-  sim$weatherDataMDCStk <- Cache(weatherInterpolationWrapper,
-                                 weatherDataMDC = weatherDataMDC,
-                                 RTMLLowRes = RTMLLowRes,
-                                 form = quote("julMDC ~ 1"),
-                                 cacheRepo = cachePath(sim),
-                                 userTags = c(current(sim), "weatherDataMDCStk"),
-                                 omitArgs = "userTags")
+  weatherDataMDCStk <- Cache(weatherInterpolationWrapper,
+                             weatherDataMDC = weatherDataMDC,
+                             RTMLLowRes = RTMLLowRes,
+                             form = quote("julMDC ~ 1"),
+                             cacheRepo = cachePath(sim),
+                             userTags = c(current(sim), "weatherDataMDCStk"),
+                             omitArgs = "userTags")
 
   ## FUELS DATA PREP --------------------------------------
   rasLevels <- as.data.table(raster::levels(sim$fuelTypesMaps$finalFuelType)[[1]])
@@ -249,7 +249,7 @@ prepFireSenseData <- function(sim) {
                                  omitArgs = c("userTags"))
 
   sim$weatherDataMDCStk <- Cache(postProcess,
-                                 x = sim$weatherDataMDCStk,
+                                 x = weatherDataMDCStk,
                                  studyArea = sim$studyArea,
                                  filename2 = NULL,
                                  userTags = c(cacheTags, "weatherDataMDCStk"),
