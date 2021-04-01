@@ -101,7 +101,7 @@ defineModule(sim, list(
                               "defaults to '+proj=longlat +datum=WGS84 +no_defs', the projection used by BioSIM"))
   ),
   outputObjects = bind_rows(
-    createsOutput(objectName = "dataFireSense_IgnitionFit", objectClass = "data.frame",
+    createsOutput(objectName = "fireSense_ignitionCovariates", objectClass = "data.frame",
                   desc = paste("Data.frame containing the variables used by the fireSense_IgnitionFit module,",
                                "to fit the fire frequency (i.e. ignition probability) model. Columns names",
                                "must match the varible names in the model formula passed to fireSense_IgnitionFit.")),
@@ -323,9 +323,9 @@ prepFireSenseData <- function(sim) {
   fuelTypesDT <- unique(as.data.table(fuelTypesDT))
 
   ## join fuel and weather data, convert NAs in no. fires to 0s, and export to sim
-  dataFireSense_IgnitionFit <- weatherDT[fuelTypesDT, on = .(cells)]
-  dataFireSense_IgnitionFit[, n_fires := sum(fire), by = cells]
-  sim$dataFireSense_IgnitionFit <- dataFireSense_IgnitionFit
+  fireSense_ignitionCovariates <- weatherDT[fuelTypesDT, on = .(cells)]
+  fireSense_ignitionCovariates[, n_fires := sum(fire), by = cells]
+
 
   ## check
   if (!compareRaster(sim$fuelTypesCoverStk, sim$weatherDataMDCStk, res = TRUE, stopiffalse = FALSE)) {
