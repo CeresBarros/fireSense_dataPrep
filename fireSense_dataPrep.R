@@ -221,7 +221,6 @@ prepFireSenseData <- function(sim) {
                           parallel = TRUE,
                           userTags = c(current(sim), "fuelTypesCover"),
                           omitArgs = c("userTags", "parallel"))
-
   names(fuelTypesCover) <- names(fuelTypesStk)
   fuelTypesCover <- as.data.table(fuelTypesCover)
 
@@ -352,8 +351,6 @@ prepFireSenseData <- function(sim) {
   if (!compareRaster(sim$fuelTypesCoverStk, sim$weatherDataMDCStk, res = TRUE, stopiffalse = FALSE)) {
     stop("Properties of 'fuelTypesCoverStk' and 'weatherDataMDCStk' differ.")
   }
-
-
 
   ## prepare objects for prediction
   if (P(sim)$prepPredictionObjs) {
