@@ -200,8 +200,11 @@ prepFireSenseData <- function(sim) {
   fuelTypesStk <- stack(fuelTypesStk)
 
   ## re-do non-fuels (NF) to add NAs
-  fuelTypesStk$NF[!fuelTypesStk$NF[] %in% rasLevels[FuelTypeFBP != "NF"]$ID] <- 99  ## everything that is not a fuel (even NAs) gets 99, so that the proportions can sum to 1.
-  fuelTypesStk$NF[fuelTypesStk$NF[] %in% rasLevels[FuelTypeFBP != "NF"]$ID] <- NA   ## fuels get NA
+  fuels <- intersect(names(fuelTypesStk), rasLevels[FuelTypeFBP != "NF"]$FuelTypeFBP)
+  fuelsRas <- calc(fuelTypesStk[[fuels]], fun = function(x) any(!is.na(x)))  ## which pixels have a fuel
+
+  fuelTypesStk$NF[fuelsRas[] == 0] <- 99  ## everything that is not a fuel (even NAs) gets 99, so that the proportions can sum to 1.
+  fuelTypesStk$NF[fuelsRas[] == 1] <- NA   ## fuels get NA
 
   ## convert to "binary" mask:
   fuelTypesStk <- lapply(unstack(fuelTypesStk), FUN = function(ras) {
