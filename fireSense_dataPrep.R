@@ -33,7 +33,7 @@ defineModule(sim, list(
                     paste("Resolution at which fire frequency (i.e. ignition) model - see Marchal et al 2017",
                           "Ecography - will be fitted. Should to be larger than the resolution of",
                           "'rasterToMatch' and in the same units. Defaults to 1000m the spatial ",
-                          "resolution of the default weather data.")),
+                          "resolution of the default weather data exported by BioSIM for LIM study area")),
     defineParameter("loadWeatherInChunks", "logical", FALSE, NA, NA,
                     desc = paste("Weather data can be extremely large and require being loaded in chunks. This defaults to FALSE,",
                                  "but if the weatherDataMDC file is > 4Gb, will be set to TRUE")),
