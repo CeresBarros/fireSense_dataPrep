@@ -42,7 +42,8 @@ defineModule(sim, list(
                                  "and 'weatherDataPred' will be exported")),
     defineParameter("propAbsences", "numeric", 2, NA, NA,
                     desc = paste("Should fire absences be generated? Will sample the number of fire presences * propAbsences",
-                                 "(per year). Defaults to the double of presences per fire year. If NA, will use all non-presences as absences.")),
+                                 "(across all years/locations). Defaults to the double of the total number of fires in sim$fireLocations.",
+                                 " If NA, will use all background datadid as pseudo-absences.")),
     defineParameter("rescalePredictionObjs", "logical", FALSE, NA, NA,
                     desc = paste("Should objects for prediction be rescaled? If TRUE 'fuelTypesCoverPred'",
                                  "and 'weatherDataPred' will be reprojected to 'rasterToMatch' resolution")),
@@ -121,8 +122,8 @@ defineModule(sim, list(
                                "when 'propAbsences' is not NA and pseudo-absences are sampled as a proportion of presences",
                                "(otherwise set to 1). Calculated as (new_totalNoCells / orig_totalNoCells)")),
     createsOutput(objectName = "rescaleFactor", objectClass = "numeric",
-                  desc = paste("OPTIONAL. Rescaling factor for fireSense_IgnitionPredict when 'rescalePredictionObjs' is TRUE.",
-                               "Calculated as (new_res / old_res) ^ 2")),
+                  desc = paste("OPTIONAL. Rescaling factor for fireSense_IgnitionPredict when 'rescalePredictionObjs' is TRUE",
+                               "(otherwise set to 1). Calculated as (new_res / old_res) ^ 2")),
     createsOutput(objectName = "weatherDataMDCStk", objectClass = "RasterStack",
                   desc = paste("A stack of interpolated monthly drought code data (from 'weatherDataMDC')",
                                "per year, in 'studyAreaLarge'."))
@@ -281,7 +282,7 @@ prepFireSenseData <- function(sim) {
     sim$fireLocations <- spTransform(sim$fireLocations, CRSobj = crs(sim$weatherDataMDCStk))
   }
 
-  if (!compareRaster(sim$weatherDataMDCStk, sim$fuelTypesCoverStk, stopiffalse = FALSE)) {
+  if (!compareRaster(sim$weatherDataMDCStk, sim$fuelTypesCoverStk, res = TRUE, stopiffalse = FALSE)) {
     stop("sim$weatherDataMDCStk and sim$fuelTypesCoverStk do not match in their properties.
          Please debug fireSense_DataPrep::prepFireSenseData")
   }
@@ -356,11 +357,6 @@ prepFireSenseData <- function(sim) {
   noData <- fireSense_ignitionCovariates[, rowSums(.SD, na.rm = TRUE) == 0, .SDcols = cols]
   sim$fireSense_ignitionCovariates <- fireSense_ignitionCovariates[!noData]
 
-  ## check
-  if (!compareRaster(sim$fuelTypesCoverStk, sim$weatherDataMDCStk, res = TRUE, stopiffalse = FALSE)) {
-    stop("Properties of 'fuelTypesCoverStk' and 'weatherDataMDCStk' differ.")
-  }
-
   ## prepare objects for prediction
   if (P(sim)$prepPredictionObjs) {
     fuelTypesCoverPred <- sim$fuelTypesCoverStk
@@ -395,6 +391,8 @@ prepFireSenseData <- function(sim) {
       if (!compareRaster(weatherDataPred, sim$rasterToMatch, res = TRUE,
                          stopiffalse = FALSE))
         stop("Rescaling of 'weatherDataPred' didn't work.")
+    } else {
+      sim$rescaleFactor <- 1
     }
   }
 
