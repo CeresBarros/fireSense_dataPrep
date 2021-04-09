@@ -287,24 +287,29 @@ prepFireSenseData <- function(sim) {
          Please debug fireSense_DataPrep::prepFireSenseData")
   }
 
-  weatherDT <- data.table(pointID = sim$fireLocations$ID,
-                          fireYEAR = sim$fireLocations$YEAR,
-                          raster::extract(sim$weatherDataMDCStk, sim$fireLocations,
-                                          cellnumbers = TRUE))
-  weatherDT <- unique(as.data.table(weatherDT))
-  ## generate absences - first make a wide DT with presences/absences per year in separate columns
-  ## add other pixels, melt, then add as many absences as the double of the number of presences per year
-  presAbsnDT <- weatherDT[, .(cells, fireYEAR)]
+  ## fire presences and  absences - first make a wide DT with presences/absences per year in separate columns
+  ## add other pixels, melt, then add as absences according to P(sim)$propAbsences * the number of presences per year
+  ## or keep all background data (weather data for absences added after)
+  presAbsnDT <- data.table(cells = cellFromXY(sim$weatherDataMDCStk, sim$fireLocations),
+                           pointID = sim$fireLocations$ID,
+                           fireYEAR = as.numeric(sim$fireLocations$YEAR))
+  ## expand to add absences (all backgroud data) to each year
   presAbsnDT <- suppressMessages(dcast(presAbsnDT, cells ~ fireYEAR))
-  presAbsnDT <- presAbsnDT[data.table(cells = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(cells)]
+  presAbsnDT <- presAbsnDT[data.table(cells = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(cells)]   ## add all possible cells.
   presAbsnDT <- melt(presAbsnDT, id.vars = "cells", variable.name = "fireYEAR", value.name = "fire")
   presAbsnDT[is.na(fire), fire := 0]
+  presAbsnDT[, fireYEAR := as.numeric(as.character(fireYEAR))]
 
   if (!is.na(P(sim)$propAbsences)) {
-    presAbsnDT <- presAbsnDT[, noAbsences := sum(fire) * P(sim)$propAbsences, by = fireYEAR]
+    presAbsnDT[, rowID := 1:.N]
+    presAbsnDT <- presAbsnDT[, noAbsences := sum(fire) * P(sim)$propAbsences]
     absenceCells <- presAbsnDT[fire == 0,
-                               list(cells = sample(cells, noAbsences, replace = FALSE)),
-                               by = fireYEAR]
+                               list(rowID = sample(rowID, noAbsences, replace = FALSE))]
+
+    absenceCells <- presAbsnDT[absenceCells, on = .(rowID)]
+    presAbsnDT <- rbind(presAbsnDT[fire != 0], absenceCells, use.names = TRUE)
+    presAbsnDT[, `:=`(noAbsences = NULL, rowID = NULL)]
+
     ## calculate adjustment for predicted probabilities as the ration of the
     ## original number of total !is.na() pixels and the new total no. pixels (pres+absence)
     origNCells <- sum(!is.na(sim$weatherDataMDCStk[[1]][]))
@@ -313,39 +318,48 @@ prepFireSenseData <- function(sim) {
   } else {
     sim$lambdaRescaleFactor <- 1
   }
-  ## add weather data
-  absenceCells <- absenceCells[, list(cells, fireYEAR, raster::extract(sim$weatherDataMDCStk, cells))]
 
-  ## bind presences and absences, add a binary for fire pres.
-  weatherDT <- rbind(weatherDT, absenceCells, use.names = TRUE, fill = TRUE)
-  weatherDT[, fire := as.integer(!is.na(pointID))]
-  oldNames <- intersect(names(weatherDT), names(sim$weatherDataMDCStk))
+  ## add weather data to presences and absences
+  ## note that no fire years will get as many presences and absences as the sum of other years presences/absences
+  ## these years will be removed from the data and added again (all cells)
+  fireYrsWeather <- presAbsnDT[, list(cells, fireYEAR, fire, raster::extract(sim$weatherDataMDCStk, cells))]
+
+  ## change weather column names
+  oldNames <- intersect(names(fireYrsWeather), names(sim$weatherDataMDCStk))
   newNames <- sub("[^[:digit:]]*", "julMDC_yr", oldNames)
-  setnames(weatherDT, old = oldNames, new = newNames)
+  setnames(fireYrsWeather, old = oldNames, new = newNames)
 
-  ## melt years
-  weatherDT <- melt(weatherDT, id.vars = c("cells", "pointID", "fireYEAR", "fire"),
-                    value.name = "julMDC", variable.name = "year")
-  weatherDT[, year := as.numeric(sub("julMDC_yr", "", year))]
+  ## melt climate data years
+  fireYrsWeather <- melt(fireYrsWeather, id.vars = c("cells", "fireYEAR", "fire"),
+                         value.name = "julMDC", variable.name = "year")
+  fireYrsWeather[, year := as.numeric(sub("julMDC_yr", "", year))]
 
-  ## make sure there's no year 0 (yet) - this can happen when using the years written by BioSim
-  if (min(weatherDT$year) == 0) {
-    weatherDT[, year := year + 1]
-  }
-
-  ## match fire year and weather year
   ## convert weather data year to calendar year
-  ## for some reason BioSIM only output 29 years, so this "excludes" 1990
-  ## we cheat by adding another year to the weather data with is an average of all others
-  cheatWeatherDT <- weatherDT[, list(julMDC = mean(julMDC), year = 0), by = .(cells, pointID, fireYEAR, fire)]
-  weatherDT <- rbind(cheatWeatherDT, weatherDT, use.names = TRUE)
-  weatherDT[, year := P(sim)$weatherDataLastYear - year]
-  weatherDT <- weatherDT[fireYEAR == year]  ## exclude data where fire year and weather year don't match
+  fireYrsWeather[, year := P(sim)$weatherDataLastYear - year]
 
-  ## get veg data, both for presences and absences - veg data is constant across years
+  ## remove no fire years from the data and add them back (all pixels)
+  nofireYears <- setdiff(fireYrsWeather$year, fireYrsWeather$fireYEAR)
+  fireYrsWeather <- fireYrsWeather[fireYEAR == year]
+
+  ## repeat steps above to get no fire years data
+  nofireYrsWeather <- data.table(cells = 1:ncell(sim$weatherDataMDCStk),
+                                 raster::as.data.frame(sim$weatherDataMDCStk))
+  nofireYrsWeather <- na.omit(nofireYrsWeather)
+  setnames(nofireYrsWeather, old = oldNames, new = newNames)
+  nofireYrsWeather <- melt(nofireYrsWeather, id.vars = c("cells"),
+                           value.name = "julMDC", variable.name = "year")
+  nofireYrsWeather[, year := as.numeric(sub("julMDC_yr", "", year))]
+  nofireYrsWeather[, year := P(sim)$weatherDataLastYear - year]
+  nofireYrsWeather <- nofireYrsWeather[year %in% nofireYears]
+
+  ## bind all weather data (fireYears and non fire years)
+  weatherDT <- rbind(fireYrsWeather, nofireYrsWeather, use.names = TRUE, fill = TRUE)
+  weatherDT[is.na(fire), fire := 0]
+
+  ## join veg data, both for presences and absences - veg data is constant across years
   fuelTypesDT <- data.table(cells = unique(weatherDT$cells),
                             raster::extract(sim$fuelTypesCoverStk, unique(weatherDT$cells)))
-  fuelTypesDT <- unique(as.data.table(fuelTypesDT))
+  fuelTypesDT <- unique(fuelTypesDT)
 
   ## join fuel and weather data, convert NAs in no. fires to 0s, and export to sim
   fireSense_ignitionCovariates <- weatherDT[fuelTypesDT, on = .(cells)]
@@ -353,7 +367,7 @@ prepFireSenseData <- function(sim) {
 
   ## exclude fires with no data - can happen for points just at the border of SA
   cols <- setdiff(names(fireSense_ignitionCovariates),
-                  c("cells", "pointID", "fireYEAR", "fire", "n_fires", "year"))
+                  c("cells", "fireYEAR", "fire", "n_fires", "year"))
   noData <- fireSense_ignitionCovariates[, rowSums(.SD, na.rm = TRUE) == 0, .SDcols = cols]
   sim$fireSense_ignitionCovariates <- fireSense_ignitionCovariates[!noData]
 
