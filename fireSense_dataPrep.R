@@ -116,6 +116,10 @@ defineModule(sim, list(
                                "at the original scale, in each larger pixel of resolution 'fitRes'.",
                                "Note that fuel type names must follow the CF Fire Behaviour Prediction System (2nd Ed.)",
                                "letter and number classification. Also, different conifer fuel types are collapsed into a single one.")),
+    createsOutput(objectName = "lambdaRescaleFactor", objectClass = "numeric",
+                  desc = paste("OPTIONAL. Factor used to adjust predicted ignition probabilities in fireSense_IgnitionPredict",
+                               "when 'propAbsences' is not NA and pseudo-absences are sampled as a proportion of presences",
+                               "(otherwise set to 1). Calculated as (new_totalNoCells / orig_totalNoCells)")),
     createsOutput(objectName = "rescaleFactor", objectClass = "numeric",
                   desc = paste("OPTIONAL. Rescaling factor for fireSense_IgnitionPredict when 'rescalePredictionObjs' is TRUE.",
                                "Calculated as (new_res / old_res) ^ 2")),
@@ -300,8 +304,13 @@ prepFireSenseData <- function(sim) {
     absenceCells <- presAbsnDT[fire == 0,
                                list(cells = sample(cells, noAbsences, replace = FALSE)),
                                by = fireYEAR]
+    ## calculate adjustment for predicted probabilities as the ration of the
+    ## original number of total !is.na() pixels and the new total no. pixels (pres+absence)
+    origNCells <- sum(!is.na(sim$weatherDataMDCStk[[1]][]))
+    newNCells <- length(unique(presAbsnDT$cells))
+    sim$lambdaRescaleFactor <- newNCells/origNCells
   } else {
-    absenceCells <- presAbsnDT[fire == 0, list(cells = cells, fireYEAR = fireYEAR)]
+    sim$lambdaRescaleFactor <- 1
   }
   ## add weather data
   absenceCells <- absenceCells[, list(cells, fireYEAR, raster::extract(sim$weatherDataMDCStk, cells))]
