@@ -287,7 +287,7 @@ prepFireSenseData <- function(sim) {
          Please debug fireSense_DataPrep::prepFireSenseData")
   }
 
-  ## fire presences and  absences - first make a wide DT with presences/absences per year in separate columns
+  ## fire presences and absences - first make a wide DT with presences/absences per year in separate columns
   ## add other pixels, melt, then add as absences according to P(sim)$propAbsences * the number of presences per year
   ## or keep all background data (weather data for absences added after)
   presAbsnDT <- data.table(cells = cellFromXY(sim$weatherDataMDCStk, sim$fireLocations),
