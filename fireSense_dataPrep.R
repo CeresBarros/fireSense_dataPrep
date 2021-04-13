@@ -388,6 +388,18 @@ prepFireSenseData <- function(sim) {
     ## go back to original scale
     ## for fuels, need to mask to rtm (to rm NAs from NF map.)
     fuelTypesCoverPred <- mask(fuelTypesStk, sim$rasterToMatch)
+    fuelTypesCoverPred$coniferous <- sum(fuelTypesStk[[c("C2", "C3", "C4", "C7")]], na.rm = TRUE)
+    fuelTypesCoverPred$coniferous[fuelTypesCoverPred$coniferous[] == 0] <- NA
+    fuelTypesCoverPred$coniferous[!is.na(fuelTypesCoverPred$coniferous[])] <- 1
+    fuelTypesCoverPred <- raster::stack(fuelTypesCoverPred)
+
+    ## NAs -> 0 when inside RTM
+    fuelTypesCoverPred <- lapply(unstack(fuelTypesCoverPred), FUN = function(ras, RTM) {
+      ras[is.na(ras[]) & !is.na(RTM[])] <- 0
+      ras
+    }, RTM = sim$rasterToMatch)
+    fuelTypesCoverPred <- raster::stack(fuelTypesCoverPred)
+
 
     weatherDataMDCPred <- Cache(st_transform,
                                 x = sim$weatherDataMDC,
