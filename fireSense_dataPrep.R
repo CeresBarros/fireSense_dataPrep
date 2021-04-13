@@ -304,12 +304,11 @@ prepFireSenseData <- function(sim) {
   ## or keep all background data (weather data for absences added after)
   presAbsnDT <- data.table(cells = cellFromXY(sim$weatherDataMDCStk, sim$fireLocations),
                            fireYEAR = as.numeric(sim$fireLocations$YEAR))
-  presAbsnDT <- unique(presAbsnDT)   ## there are some duplicated points
   ## expand to add absences (all background data) to each year
   presAbsnDT <- suppressMessages(dcast(presAbsnDT, cells ~ fireYEAR))
   presAbsnDT <- presAbsnDT[data.table(cells = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(cells)]   ## add all possible cells.
   presAbsnDT <- melt(presAbsnDT, id.vars = "cells", variable.name = "fireYEAR", value.name = "fire")
-  presAbsnDT[, fire := as.numeric(!is.na(fire))]
+  presAbsnDT[is.na(fire), fire := 0]
   presAbsnDT[, fireYEAR := as.numeric(as.character(fireYEAR))]
 
   ## add weather data to all presences and absences
