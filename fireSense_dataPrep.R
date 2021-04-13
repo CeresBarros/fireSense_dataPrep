@@ -173,9 +173,18 @@ prepFireSenseData <- function(sim) {
 
   ## STUDY AREA PREP -----------------------------------------
   ## reduce resolution of rasterToMatchLarge and make a polygon grid
-  RTMLLowRes <- projectRaster(sim$rasterToMatchLarge,
-                              res = P(sim)$fitRes,
-                              crs = crs(sim$rasterToMatchLarge))
+  tempRas <- raster(res = P(sim)$fitRes,
+                    crs = crs(sim$studyAreaLarge),
+                    ext = extent(sim$studyAreaLarge))
+  RTMLLowRes <- Cache(rasterize,
+                   x = sim$studyAreaLarge,
+                   y = tempRas,
+                   field = "Name",
+                   getCover = TRUE,
+                   cacheRepo = cachePath(sim),
+                   userTags = c(cacheTags, "RTMLLowRes"),
+                   omitArgs = "userTags")
+  RTMLLowRes[RTMLLowRes == 0] <- NA
   RTMLLowRes[!is.na(RTMLLowRes[])] <- seq_len(sum(!is.na(RTMLLowRes[])))
   RTMLLowResPolyGrid <- st_as_sf(rasterToPolygons(RTMLLowRes))
 
