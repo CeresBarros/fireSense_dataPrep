@@ -374,16 +374,37 @@ prepFireSenseData <- function(sim) {
 
   ## prepare objects for prediction
   if (P(sim)$prepPredictionObjs) {
-    fuelTypesCoverPred <- sim$fuelTypesCoverStk
+    ## go back to original scale
+    ## for fuels, need to mask to rtm (to rm NAs from NF map.)
+    fuelTypesCoverPred <- mask(fuelTypesStk, sim$rasterToMatch)
+
+    weatherDataMDCPred <- st_transform(sim$weatherDataMDC, crs = as.character(crs(sim$rasterToMatch)))
+
+    weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
+                                   weatherDataMDC = weatherDataMDCPred,
+                                   rasterToMatch = sim$rasterToMatch,
+                                   form = quote("julMDC ~ 1"),
+                                   cacheRepo = cachePath(sim),
+                                   userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                   omitArgs = "userTags")
+
+    weatherDataMDCPredStk <- Cache(postProcess,
+                                   x = weatherDataMDCPredStk,
+                                   studyArea = sim$studyArea,
+                                   filename2 = NULL,
+                                   userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                   omitArgs = c("userTags"))
+
+
     ## export raster with averaged julMDC across years to predict ignitions once
     weatherDataPred <- if (P(sim)$averageWeather4Pred) {
-      stack(raster::mean(sim$weatherDataMDCStk))
+      stack(raster::mean(weatherDataMDCPredStk))
     } else {
-      sim$weatherDataMDCStk
+      weatherDataMDCPredStk
     }
 
     if (nlayers(weatherDataPred) > 1) {
-      names(weatherDataPred) <- paste0("julMDC_", names(sim$weatherDataMDCStk))
+      names(weatherDataPred) <- paste0("julMDC_", names(weatherDataMDCPredStk))
     } else {
       names(weatherDataPred) <- "julMDC"
     }
@@ -393,12 +414,14 @@ prepFireSenseData <- function(sim) {
       sim$rescaleFactor <- (res(sim$rasterToMatch)[1]/P(sim)$fitRes)^2
 
       ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim)$rescaleFactor)
-      fuelTypesCoverPred <- projectInputs(fuelTypesCoverPred,
-                                          rasterToMatch = sim$rasterToMatch,
-                                          method = "bilinear")
-      weatherDataPred <- projectInputs(weatherDataPred,
-                                       rasterToMatch = sim$rasterToMatch,
-                                       method = "bilinear")
+      if (FALSE) { ## not necessary as we go back to the origina ldata for fuels and re-interpolated weather for RTM
+        fuelTypesCoverPred <- projectInputs(fuelTypesCoverPred,
+                                            rasterToMatch = sim$rasterToMatch,
+                                            method = "bilinear")
+        weatherDataPred <- projectInputs(weatherDataPred,
+                                         rasterToMatch = sim$rasterToMatch,
+                                         method = "bilinear")
+      }
       ## checks
       if (!compareRaster(fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
                          stopiffalse = FALSE))
