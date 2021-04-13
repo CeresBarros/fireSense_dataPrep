@@ -44,9 +44,6 @@ defineModule(sim, list(
                     desc = paste("Should fire absences be generated? Will sample the number of fire presences * propAbsences",
                                  "(across all years/locations). Defaults to the double of the total number of fires in sim$fireLocations.",
                                  " If NA, will use all background datadid as pseudo-absences.")),
-    defineParameter("rescalePredictionObjs", "logical", FALSE, NA, NA,
-                    desc = paste("Should objects for prediction be rescaled? If TRUE 'fuelTypesCoverPred'",
-                                 "and 'weatherDataPred' will be reprojected to 'rasterToMatch' resolution")),
     defineParameter("timePeriod", "numeric", 1960:1990, NA, NA,
                     paste("The time period comprising the fire and weather data on which fire frequency",
                           "(i.e. ignition) model - see Marchal et al 2017 - will be fitted.",
@@ -80,20 +77,17 @@ defineModule(sim, list(
                  sourceURL = NA),
     expectsInput("rasterToMatch", "RasterLayer",
                  desc = paste("A raster of the studyArea in the same resolution and projection as rawBiomassMap.",
-                              "This is the scale used for all *outputs* for use in the simulation."),
+                              "This defines the spatial extent and scale used for objects used for prediction of fire ignitions."),
                  sourceURL = NA),
     expectsInput("rasterToMatchLarge", "RasterLayer",
                  desc = paste("A raster of the studyAreaLarge in the same resolution and projection as rawBiomassMap.",
-                              "This is the scale used for all *inputs* for use in the simulation."),
+                              "This  defines the extent used (scale is defined by fitRes) for objects used for fitting the fire ignition model."),
                  sourceURL = NA),
     expectsInput("studyArea", "SpatialPolygonsDataFrame",
-                 desc = paste("Polygon to use as the study area.",
-                              "Defaults to  an area in Southwestern Alberta, Canada."),
+                 desc = paste("Polygon to use as the study area and prediction of fire ignitions."),
                  sourceURL = NA),
     expectsInput("studyAreaLarge", "SpatialPolygonsDataFrame",
-                 desc = paste("multipolygon (larger area than studyArea) used for parameter estimation,",
-                              "with attribute LTHFC describing the fire return interval.",
-                              "Defaults to a square shapefile in Southwestern Alberta, Canada."),
+                 desc = paste("multipolygon (larger area than studyArea) used for fitting the fire ignition model"),
                  sourceURL = NA),
     expectsInput(objectName = "weatherDataMDC", objectClass = "sf",
                  desc = paste("Weather point data  with average drought code (DC) for July, per year,",
@@ -108,11 +102,13 @@ defineModule(sim, list(
     createsOutput(objectName = "fireSense_ignitionCovariates", objectClass = "data.frame",
                   desc = paste("Data.frame containing the variables used by the fireSense_IgnitionFit module,",
                                "to fit the fire frequency (i.e. ignition probability) model. Columns names",
-                               "must match the varible names in the model formula passed to fireSense_IgnitionFit.")),
+                               "must match the varible names in the model formula passed to fireSense_IgnitionFit.",
+                               "Taken from data at a resolution = fitRes and studyAreaLarge/rasterToMatchLarge extent")),
     createsOutput(objectName = "fireSense_IgnitionAndEscapeCovariates", objectClass = c("RasterStack"),
-                  desc = paste("An object of class RasterStack (named according to variables) prediction variables")),
+                  desc = paste("An object of class RasterStack (named according to variables) prediction variables.",
+                               "Matches the extent and resolution of rasterToMatch")),
     createsOutput(objectName = "fuelTypesCoverStk", objectClass = "RasterStack",
-                  desc = paste("A stack of abundance of fire fuels upscaled from 'fuelTypesMaps'.",
+                  desc = paste("A stack of abundance of fire fuels upscaled from 'fuelTypesMaps' (to fitRes).",
                                "Fuel abundances are calculated as the proportion of pixels of each fuel type,",
                                "at the original scale, in each larger pixel of resolution 'fitRes'.",
                                "Note that fuel type names must follow the CF Fire Behaviour Prediction System (2nd Ed.)",
@@ -122,11 +118,10 @@ defineModule(sim, list(
                                "when 'propAbsences' is not NA and pseudo-absences are sampled as a proportion of presences",
                                "(otherwise set to 1). Calculated as (new_totalNoCells / orig_totalNoCells)")),
     createsOutput(objectName = "rescaleFactor", objectClass = "numeric",
-                  desc = paste("OPTIONAL. Rescaling factor for fireSense_IgnitionPredict when 'rescalePredictionObjs' is TRUE",
-                               "(otherwise set to 1). Calculated as (new_res / old_res) ^ 2")),
+                  desc = paste("Rescaling factor for fireSense_IgnitionPredict. Calculated as (new_res / old_res) ^ 2")),
     createsOutput(objectName = "weatherDataMDCStk", objectClass = "RasterStack",
                   desc = paste("A stack of interpolated monthly drought code data (from 'weatherDataMDC')",
-                               "per year, in 'studyAreaLarge'."))
+                               "per year, in 'studyAreaLarge' matching the resolution of fitRes."))
   )
 ))
 
@@ -249,29 +244,37 @@ prepFireSenseData <- function(sim) {
                                      fuelTypesCoverStk$C4,
                                      fuelTypesCoverStk$C7)
 
-  ## RESIZE TO STUDY AREA (so resolution doesn't change) ---------------------------------------
-  ## this is the actual size of the fuels data even if NA's/0s where added around it from the cover calculations
-  sim$fuelTypesCoverStk <- Cache(postProcess,
-                                 x = fuelTypesCoverStk,
-                                 studyArea = sim$studyArea,
-                                 filename2 = NULL,
-                                 userTags = c(cacheTags, "fuelTypesCoverStk"),
-                                 omitArgs = c("userTags"))
+  ## keep at SAL (and a bit beyond to avoid cutting peripheral pixels)
+  ## only prediction is done at SA scale
+  if (FALSE) {
+    ## RESIZE TO STUDY AREA (so resolution doesn't change) ---------------------------------------
+    ## this is the actual size of the fuels data even if NA's/0s where added around it from the cover calculations
+    sim$fuelTypesCoverStk <- Cache(postProcess,
+                                   x = fuelTypesCoverStk,
+                                   studyArea = sim$studyArea,
+                                   filename2 = NULL,
+                                   cacheRepo = cachePath(sim),
+                                   userTags = c(cacheTags, "fuelTypesCoverStk"),
+                                   omitArgs = c("userTags"))
 
-  sim$weatherDataMDCStk <- Cache(postProcess,
-                                 x = weatherDataMDCStk,
-                                 studyArea = sim$studyArea,
-                                 filename2 = NULL,
-                                 userTags = c(cacheTags, "weatherDataMDCStk"),
-                                 omitArgs = c("userTags"))
+    sim$weatherDataMDCStk <- Cache(postProcess,
+                                   x = weatherDataMDCStk,
+                                   studyArea = sim$studyArea,
+                                   filename2 = NULL,
+                                   cacheRepo = cachePath(sim),
+                                   userTags = c(cacheTags, "weatherDataMDCStk"),
+                                   omitArgs = c("userTags"))
+  } else {
+    sim$fuelTypesCoverStk <- fuelTypesCoverStk
+    sim$weatherDataMDCStk <- weatherDataMDCStk
+  }
 
-  # fireLocationsDT <- st_drop_geometry(sim$fireLocations)
-  # sim$fireLocations <- as(as_Spatial(sim$fireLocations[, c("ID", "YEAR")]), "SpatialPoints")  ## also necessary to join data afterwards
   sim$fireLocations <- as_Spatial(sim$fireLocations[, c("ID", "YEAR")])
   sim$fireLocations <- Cache(postProcess,
                              x = sim$fireLocations,
-                             studyArea = sim$studyArea,
+                             studyArea = sim$studyAreaLarge,
                              filename2 = NULL,
+                             cacheRepo = cachePath(sim),
                              userTags = c(cacheTags, "fireLocationsRTM"),
                              omitArgs = c("userTags"))
 
@@ -372,7 +375,7 @@ prepFireSenseData <- function(sim) {
   noData <- fireSense_ignitionCovariates[, rowSums(.SD, na.rm = TRUE) == 0, .SDcols = cols]
   sim$fireSense_ignitionCovariates <- fireSense_ignitionCovariates[!noData]
 
-  ## prepare objects for prediction
+  ## prepare objects for prediction - will be rescaled to match sim$rasterToMatch
   if (P(sim)$prepPredictionObjs) {
     ## go back to original scale
     ## for fuels, need to mask to rtm (to rm NAs from NF map.)
@@ -409,28 +412,25 @@ prepFireSenseData <- function(sim) {
       names(weatherDataPred) <- "julMDC"
     }
 
-    if (P(sim)$rescalePredictionObjs) {
-      ## rescaling factor calculated as (newRes[1]/oldRes[1])^2
-      sim$rescaleFactor <- (res(sim$rasterToMatch)[1]/P(sim)$fitRes)^2
+    ## checks
+    if (!compareRaster(fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
+                       stopiffalse = FALSE))
+      stop("Rescaling of 'fuelTypesCoverPred' didn't work.")
+    if (!compareRaster(weatherDataPred, sim$rasterToMatch, res = TRUE,
+                       stopiffalse = FALSE))
+      stop("Rescaling of 'weatherDataPred' didn't work.")
 
-      ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim)$rescaleFactor)
-      if (FALSE) { ## not necessary as we go back to the origina ldata for fuels and re-interpolated weather for RTM
-        fuelTypesCoverPred <- projectInputs(fuelTypesCoverPred,
-                                            rasterToMatch = sim$rasterToMatch,
-                                            method = "bilinear")
-        weatherDataPred <- projectInputs(weatherDataPred,
-                                         rasterToMatch = sim$rasterToMatch,
-                                         method = "bilinear")
-      }
-      ## checks
-      if (!compareRaster(fuelTypesCoverPred, sim$rasterToMatch, res = TRUE,
-                         stopiffalse = FALSE))
-        stop("Rescaling of 'fuelTypesCoverPred' didn't work.")
-      if (!compareRaster(weatherDataPred, sim$rasterToMatch, res = TRUE,
-                         stopiffalse = FALSE))
-        stop("Rescaling of 'weatherDataPred' didn't work.")
+    ## rescaling factor calculated as (newRes[1]/oldRes[1])^2
+    ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim)$rescaleFactor)
+    rescaleFactor <- (res(sim$rasterToMatch)[1]/P(sim)$fitRes)^2
+
+    if (is.null(sim$rescaleFactor)) {   ## the user may want to override this for some reason (e.g. running ignitionFit/Predict for fitted values)
+      sim$rescaleFactor <- rescaleFactor
     } else {
-      sim$rescaleFactor <- 1
+      if (rescaleFactor != sim$rescaleFactor) {
+        warning(paste("The rescale factor calculated was", rescaleFactor, "but the user supplied", sim$rescaleFactor))
+        warning("Check if this was intended.")
+      }
     }
   }
 
