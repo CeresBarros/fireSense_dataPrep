@@ -314,7 +314,7 @@ prepFireSenseData <- function(sim) {
 
   ## melt climate data years
   weatherDT <- melt(weatherDT, id.vars = c("cells", "fireYEAR", "fire"),
-                     value.name = "julMDC", variable.name = "year")
+                    value.name = "julMDC", variable.name = "year")
   weatherDT[, year := as.numeric(sub("julMDC_yr", "", year))]
 
   ## convert weather data year to calendar year
@@ -342,7 +342,7 @@ prepFireSenseData <- function(sim) {
            Please supply smaller propAbsences or set it to NA to use all available background data as pseudo-absences.")
     } else {
       absenceCells <- weatherDT[fire == 0,
-                                 list(rowID = sample(rowID, noAbsences, replace = FALSE))]
+                                list(rowID = sample(rowID, noAbsences, replace = FALSE))]
       absenceCells <- weatherDT[absenceCells, on = .(rowID)]
       weatherDT <- rbind(weatherDT[fire != 0], absenceCells, use.names = TRUE)
       weatherDT[, `:=`(rowID = NULL)]
