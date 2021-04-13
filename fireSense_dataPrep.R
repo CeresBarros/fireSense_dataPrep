@@ -390,7 +390,12 @@ prepFireSenseData <- function(sim) {
     ## for fuels, need to mask to rtm (to rm NAs from NF map.)
     fuelTypesCoverPred <- mask(fuelTypesStk, sim$rasterToMatch)
 
-    weatherDataMDCPred <- st_transform(sim$weatherDataMDC, crs = as.character(crs(sim$rasterToMatch)))
+    weatherDataMDCPred <- Cache(st_transform,
+                                x = sim$weatherDataMDC,
+                                crs = as.character(crs(sim$rasterToMatch)),
+                                cacheRepo = cachePath(sim),
+                                userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                omitArgs = "userTags")
 
     weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
                                    weatherDataMDC = weatherDataMDCPred,
