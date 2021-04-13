@@ -193,7 +193,7 @@ prepFireSenseData <- function(sim) {
                              rasterToMatch = RTMLLowRes,
                              form = quote("julMDC ~ 1"),
                              cacheRepo = cachePath(sim),
-                             userTags = c(current(sim), "weatherDataMDCStk"),
+                             userTags = c(cacheTags, "weatherDataMDCStk"),
                              omitArgs = "userTags")
 
   ## FUELS DATA PREP --------------------------------------
@@ -224,7 +224,7 @@ prepFireSenseData <- function(sim) {
                           RTMPolyGrid = RTMLLowResPolyGrid,
                           cacheRepo = cachePath(sim),
                           parallel = TRUE,
-                          userTags = c(current(sim), "fuelTypesCover"),
+                          userTags = c(cacheTags, "fuelTypesCover"),
                           omitArgs = c("userTags", "parallel"))
   names(fuelTypesCover) <- names(fuelTypesStk)
   fuelTypesCover <- as.data.table(fuelTypesCover)
