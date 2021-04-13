@@ -190,7 +190,7 @@ prepFireSenseData <- function(sim) {
 
   weatherDataMDCStk <- Cache(weatherInterpolationWrapper,
                              weatherDataMDC = weatherDataMDC,
-                             RTMLLowRes = RTMLLowRes,
+                             rasterToMatch = RTMLLowRes,
                              form = quote("julMDC ~ 1"),
                              cacheRepo = cachePath(sim),
                              userTags = c(current(sim), "weatherDataMDCStk"),
@@ -221,7 +221,7 @@ prepFireSenseData <- function(sim) {
   ## first count no. of pixels
   fuelTypesCover <- Cache(calcFuelCoverWrapper,
                           fuelTypesStk = fuelTypesStk,
-                          RTMLLowResPolyGrid = RTMLLowResPolyGrid,
+                          RTMPolyGrid = RTMLLowResPolyGrid,
                           cacheRepo = cachePath(sim),
                           parallel = TRUE,
                           userTags = c(current(sim), "fuelTypesCover"),

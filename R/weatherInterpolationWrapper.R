@@ -2,7 +2,7 @@
 #' @importFrom gstat gstat
 #' @importFrom raster interpolate mask stack
 
-weatherInterpolationWrapper <- function(weatherDataMDC, RTMLLowRes, form) {
+weatherInterpolationWrapper <- function(weatherDataMDC, rasterToMatch, form) {
   if (class(form) != "formula")
     form <- as.formula(form)
   years <- c(unique(weatherDataMDC$year))
@@ -11,8 +11,8 @@ weatherInterpolationWrapper <- function(weatherDataMDC, RTMLLowRes, form) {
     weatherSPDF <- as_Spatial(weatherDataMDC[weatherDataMDC$year == yr,])
     interpModel <- gstat(formula = form, data = weatherSPDF, set = list(idp = 0),
                          nmax = 8)   ## using 8 nearest neighbours
-    weatherRas <- interpolate(object = RTMLLowRes, model = interpModel)  ## interpolate on RTM
-    mask(weatherRas, RTMLLowRes)
+    weatherRas <- interpolate(object = rasterToMatch, model = interpModel)  ## interpolate on RTM
+    mask(weatherRas, rasterToMatch)
   }, simplify = FALSE, USE.NAMES = TRUE)
 
   weatherDataMDCStk <- raster::stack(weatherDataMDCStk)
