@@ -226,8 +226,8 @@ prepFireSenseData <- function(sim) {
   fuelTypesCover <- Cache(calcFuelCoverWrapper,
                           fuelTypesStk = fuelTypesStk,
                           RTMPolyGrid = RTMLLowResPolyGrid,
-                          cacheRepo = cachePath(sim),
                           parallel = TRUE,
+                          cacheRepo = cachePath(sim),
                           userTags = c(cacheTags, "fuelTypesCover"),
                           omitArgs = c("userTags", "parallel"))
   names(fuelTypesCover) <- names(fuelTypesStk)
@@ -408,9 +408,9 @@ prepFireSenseData <- function(sim) {
                                    x = weatherDataMDCPredStk,
                                    studyArea = sim$studyArea,
                                    filename2 = NULL,
+                                   cacheRepo = cachePath(sim),
                                    userTags = c(cacheTags, "weatherDataMDCPredStk"),
                                    omitArgs = c("userTags"))
-
 
     ## export raster with averaged julMDC across years to predict ignitions once
     weatherDataPred <- if (P(sim)$averageWeather4Pred) {
@@ -539,6 +539,7 @@ prepFireSenseData <- function(sim) {
                              method = "bilinear",
                              datatype = "INT2U",
                              filename2 = NULL,
+                             cacheRepo = cachePath(sim),
                              userTags = c(cacheTags, "rawBiomassMap"),
                              omitArgs = c("destinationPath", "targetFile", "userTags", "stable"))
     } else {
@@ -551,6 +552,7 @@ prepFireSenseData <- function(sim) {
                              datatype = "INT2U",
                              filename2 = NULL,
                              overwrite = TRUE,
+                             cacheRepo = cachePath(sim),
                              userTags = cacheTags,
                              omitArgs = c("destinationPath", "targetFile", "userTags", "stable"))
     }
@@ -571,6 +573,7 @@ prepFireSenseData <- function(sim) {
                                     filename2 = .suffix(file.path(dPath, "rasterToMatchLarge.tif"),
                                                         paste0("_", P(sim)$.studyAreaName)),
                                     datatype = "INT2U", overwrite = TRUE,
+                                    cacheRepo = cachePath(sim),
                                     userTags = c(cacheTags, "rasterToMatchLarge"),
                                     omitArgs = c("userTags"))
 
@@ -585,6 +588,7 @@ prepFireSenseData <- function(sim) {
                                filename2 = .suffix(file.path(dPath, "rasterToMatch.tif"),
                                                    paste0("_", P(sim)$.studyAreaName)),
                                overwrite = TRUE,
+                               cacheRepo = cachePath(sim),
                                userTags = c(cacheTags, "rasterToMatch"),
                                omitArgs = c("destinationPath", "targetFile", "userTags", "stable"))
 
@@ -616,6 +620,7 @@ prepFireSenseData <- function(sim) {
                            destinationPath = dPath,
                            studyArea = sim$studyArealarge,
                            filename2 = TRUE, overwrite = TRUE,
+                           cacheRepo = cachePath(sim),
                            userTags = c(cacheTags, "prepInputsfireLocations"), # use at least 1 unique userTag
                            omitArgs = c("destinationPath", "targetFile", "userTags"))
 
@@ -664,6 +669,7 @@ prepFireSenseData <- function(sim) {
                                     destinationPath = dPath,
                                     fun = "sf::st_read",
                                     url = "https://drive.google.com/file/d/1XyvWGM0dm1TMiLq4jgYB2vXDjekEQTDl/view?usp=sharing",
+                                    cacheRepo = cachePath(sim),
                                     userTags = c(cacheTags, "weatherDataMDCPoints"),
                                     omitArgs = "userTags")
 
@@ -687,6 +693,7 @@ prepFireSenseData <- function(sim) {
                               fun = "data.table::fread",
                               destinationPath = dPath,
                               url = extractURL("weatherDataMDC", sim),
+                              cacheRepo = cachePath(sim),
                               userTags = c(cacheTags, "weatherDataMDC"),
                               omitArgs = "userTags")
 
@@ -751,6 +758,7 @@ prepFireSenseData <- function(sim) {
                                   timePeriod = P(sim)$timePeriod,
                                   weatherDataLastYear = P(sim)$weatherDataLastYear,
                                   progress = FALSE,
+                                  cacheRepo = cachePath(sim),
                                   userTags = c("weatherDataMDC", "summarized"),
                                   omitArgs = "userTags")
     }
