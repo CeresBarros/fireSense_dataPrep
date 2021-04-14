@@ -98,7 +98,7 @@ defineModule(sim, list(
                               "supplied by the user or a module. If using default 'weatherDataMDC', 'weatherDataMDCCRS'",
                               "defaults to '+proj=longlat +datum=WGS84 +no_defs', the projection used by BioSIM"))
   ),
-  outputObjects = bind_rows(
+  outputObjects = bindrows(
     createsOutput(objectName = "fireSense_ignitionCovariates", objectClass = "data.frame",
                   desc = paste("Data.frame containing the variables used by the fireSense_IgnitionFit module,",
                                "to fit the fire frequency (i.e. ignition probability) model. Columns names",
