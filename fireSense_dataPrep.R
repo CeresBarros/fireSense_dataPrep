@@ -65,7 +65,7 @@ defineModule(sim, list(
                           "This is generally intended for data-type modules, where stochasticity",
                           "and time are not relevant"))
   ),
-  inputObjects = bind_rows(
+  inputObjects = bindrows(
     expectsInput(objectName = "fireLocations", objectClass = "sf",
                  desc = paste("A spatial points sf object with fire locations across a time period ('timePeriod')",
                               "for fitting a fire frequency (i.e. ignition) model - see Marchal et al 2017 Ecography.",
