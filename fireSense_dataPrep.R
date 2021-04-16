@@ -302,21 +302,21 @@ prepFireSenseData <- function(sim) {
   ## fire presences and absences - first make a wide DT with presences/absences per year in separate columns
   ## add other pixels, melt, then add as absences according to P(sim)$propAbsences * the number of presences per year
   ## or keep all background data (weather data for absences added after)
-  presAbsnDT <- data.table(cells = cellFromXY(sim$weatherDataMDCStk, sim$fireLocations),
+  presAbsnDT <- data.table(pixelID = cellFromXY(sim$weatherDataMDCStk, sim$fireLocations),
                            fireYEAR = as.numeric(sim$fireLocations$YEAR))
   ## expand to add absences (all background data) to each year
-  presAbsnDT <- suppressMessages(dcast(presAbsnDT, cells ~ fireYEAR))
-  presAbsnDT <- presAbsnDT[data.table(cells = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(cells)]   ## add all possible cells.
-  presAbsnDT <- melt(presAbsnDT, id.vars = "cells", variable.name = "fireYEAR", value.name = "fire")
-  presAbsnDT[is.na(fire), fire := 0]
+  presAbsnDT <- suppressMessages(dcast(presAbsnDT, pixelID ~ fireYEAR))     ## will sum fires per cell/year (pixelID with two fires appear twice in the data above)
+  presAbsnDT <- presAbsnDT[data.table(pixelID = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(pixelID)]   ## add all possible pixelID.
+  presAbsnDT <- melt(presAbsnDT, id.vars = "pixelID", variable.name = "fireYEAR", value.name = "n_fires")
+  presAbsnDT[is.na(n_fires), n_fires := 0]
   presAbsnDT[, fireYEAR := as.numeric(as.character(fireYEAR))]
 
   ## add weather data to all presences and absences
   ## this adds data to all fire years, but will also add data of no-fire years
   ## it also repeats all weather data years for all fire years - this is solved after when the data is filtered
   ## note that no fire years will get as many presences and absences as the sum of other years presences/absences
-  ## these years will be removed from the data and added again (all cells)
-  weatherDT <- presAbsnDT[, list(cells, fireYEAR, fire, raster::extract(sim$weatherDataMDCStk, cells))]
+  ## these years will be removed from the data and added again (all pixelID)
+  weatherDT <- presAbsnDT[, list(pixelID, fireYEAR, n_fires, raster::extract(sim$weatherDataMDCStk, pixelID))]
 
   ## change weather column names
   oldNames <- intersect(names(weatherDT), names(sim$weatherDataMDCStk))
@@ -324,7 +324,7 @@ prepFireSenseData <- function(sim) {
   setnames(weatherDT, old = oldNames, new = newNames)
 
   ## melt climate data years
-  weatherDT <- melt(weatherDT, id.vars = c("cells", "fireYEAR", "fire"),
+  weatherDT <- melt(weatherDT, id.vars = c("pixelID", "fireYEAR", "n_fires"),
                     value.name = "julMDC", variable.name = "year")
   weatherDT[, year := as.numeric(sub("julMDC_yr", "", year))]
 
@@ -335,27 +335,27 @@ prepFireSenseData <- function(sim) {
   ## also filter match weather and fire year data.
   nofireYears <- setdiff(weatherDT$year, weatherDT$fireYEAR)
   weatherDTFireYrs <- unique(weatherDT[fireYEAR == year])
-  weatherDTNoFireYrs <- unique(weatherDT[year %in% nofireYears, .(cells, year, julMDC)])
+  weatherDTNoFireYrs <- unique(weatherDT[year %in% nofireYears, .(pixelID, year, julMDC)])
 
   weatherDT <- rbind(weatherDTFireYrs, weatherDTNoFireYrs, use.names = TRUE, fill = TRUE)
-  weatherDT[is.na(fire), fire := 0]
+  weatherDT[is.na(n_fires), n_fires := 0]
 
-  if (length(unique(weatherDT$cells)) != sum(!is.na(sim$weatherDataMDCStk[[1]][]))) {
-    stop("Something is wrong. Total no. cells in table differs from number of non NA cells in raster")
+  if (length(unique(weatherDT$pixelID)) != sum(!is.na(sim$weatherDataMDCStk[[1]][]))) {
+    stop("Something is wrong. Total no. pixelID in table differs from number of non NA pixelID in raster")
   }
 
   if (!is.na(P(sim)$propAbsences)) {
     weatherDT[, rowID := 1:.N]
-    noAbsences <- sum(unique(weatherDT[!is.na(fireYEAR), .(cells, fireYEAR, fire)])$fire) * P(sim)$propAbsences
+    noAbsences <- sum(unique(weatherDT[!is.na(fireYEAR), .(pixelID, fireYEAR, n_fires)])$n_fires) * P(sim)$propAbsences
 
-    if (noAbsences > nrow(weatherDT[fire == 0])) {
-      stop("P(sim)$propAbsences results in more cells than max. available (= cells with no fires*years).
+    if (noAbsences > nrow(weatherDT[n_fires == 0])) {
+      stop("P(sim)$propAbsences results in more pixelID than max. available (= pixelID with no fires*years).
            Please supply smaller propAbsences or set it to NA to use all available background data as pseudo-absences.")
     } else {
-      absenceCells <- weatherDT[fire == 0,
+      absenceCells <- weatherDT[n_fires == 0,
                                 list(rowID = sample(rowID, noAbsences, replace = FALSE))]
       absenceCells <- weatherDT[absenceCells, on = .(rowID)]
-      weatherDT <- rbind(weatherDT[fire != 0], absenceCells, use.names = TRUE)
+      weatherDT <- rbind(weatherDT[n_fires != 0], absenceCells, use.names = TRUE)
       weatherDT[, `:=`(rowID = NULL)]
 
       ## calculate adjustment for predicted probabilities as the ration of the
@@ -369,17 +369,16 @@ prepFireSenseData <- function(sim) {
   }
 
   ## join veg data, both for presences and absences - veg data is constant across years
-  fuelTypesDT <- data.table(cells = unique(weatherDT$cells),
-                            raster::extract(sim$fuelTypesCoverStk, unique(weatherDT$cells)))
+  fuelTypesDT <- data.table(pixelID = unique(weatherDT$pixelID),
+                            raster::extract(sim$fuelTypesCoverStk, unique(weatherDT$pixelID)))
   fuelTypesDT <- unique(fuelTypesDT)
 
   ## join fuel and weather data, convert NAs in no. fires to 0s, and export to sim
-  fireSense_ignitionCovariates <- weatherDT[fuelTypesDT, on = .(cells)]
-  fireSense_ignitionCovariates[, n_fires := sum(fire), by = cells]
+  fireSense_ignitionCovariates <- weatherDT[fuelTypesDT, on = .(pixelID)]
 
   ## exclude fires with no data - can happen for points just at the border of SA
   cols <- setdiff(names(fireSense_ignitionCovariates),
-                  c("cells", "fireYEAR", "fire", "n_fires", "year"))
+                  c("pixelID", "fireYEAR", "n_fires", "n_fires", "year"))
   noData <- fireSense_ignitionCovariates[, rowSums(.SD, na.rm = TRUE) == 0, .SDcols = cols]
   sim$fireSense_ignitionCovariates <- fireSense_ignitionCovariates[!noData]
 
