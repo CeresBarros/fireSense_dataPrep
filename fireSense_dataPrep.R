@@ -105,8 +105,8 @@ defineModule(sim, list(
                                "must match the varible names in the model formula passed to fireSense_IgnitionFit.",
                                "Taken from data at a resolution = fitRes and studyAreaLarge/rasterToMatchLarge extent")),
     createsOutput(objectName = "fireSense_IgnitionAndEscapeCovariates", objectClass = c("RasterStack"),
-                  desc = paste("An object of class RasterStack (named according to variables) prediction variables.",
-                               "Matches the extent and resolution of rasterToMatch")),
+                  desc = paste("OPTIONAL. An object of class RasterStack (named according to variables) prediction variables.",
+                               "Matches the extent and resolution of rasterToMatch. Only output if isTRUE(prepPredictionObjs)")),
     createsOutput(objectName = "fuelTypesCoverStk", objectClass = "RasterStack",
                   desc = paste("A stack of abundance of fire fuels upscaled from 'fuelTypesMaps' (to fitRes).",
                                "Fuel abundances are calculated as the proportion of pixels of each fuel type,",
@@ -177,13 +177,13 @@ prepFireSenseData <- function(sim) {
                     crs = crs(sim$studyAreaLarge),
                     ext = extent(sim$studyAreaLarge))
   RTMLLowRes <- Cache(rasterize,
-                   x = sim$studyAreaLarge,
-                   y = tempRas,
-                   field = "Name",
-                   getCover = TRUE,
-                   cacheRepo = cachePath(sim),
-                   userTags = c(cacheTags, "RTMLLowRes"),
-                   omitArgs = "userTags")
+                      x = sim$studyAreaLarge,
+                      y = tempRas,
+                      field = "Name",
+                      getCover = TRUE,
+                      cacheRepo = cachePath(sim),
+                      userTags = c(cacheTags, "RTMLLowRes"),
+                      omitArgs = "userTags")
   RTMLLowRes[RTMLLowRes == 0] <- NA
   RTMLLowRes[!is.na(RTMLLowRes[])] <- seq_len(sum(!is.na(RTMLLowRes[])))
   RTMLLowResPolyGrid <- st_as_sf(rasterToPolygons(RTMLLowRes))
