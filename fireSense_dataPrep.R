@@ -113,12 +113,11 @@ defineModule(sim, list(
                                "at the original scale, in each larger pixel of resolution 'fitRes'.",
                                "Note that fuel type names must follow the CF Fire Behaviour Prediction System (2nd Ed.)",
                                "letter and number classification. Also, different conifer fuel types are collapsed into a single one.")),
-    createsOutput(objectName = "lambdaRescaleFactor", objectClass = "numeric",
-                  desc = paste("OPTIONAL. Factor used to adjust predicted ignition probabilities in fireSense_IgnitionPredict",
-                               "when 'propAbsences' is not NA and pseudo-absences are sampled as a proportion of presences",
-                               "(otherwise set to 1). Calculated as (new_totalNoCells / orig_totalNoCells)")),
-    createsOutput(objectName = "rescaleFactor", objectClass = "numeric",
-                  desc = paste("Rescaling factor for fireSense_IgnitionPredict. Calculated as (new_res / old_res) ^ 2")),
+    createsOutput(objectName = "ignitionFitRTM",
+                  objectClass = "RasterLayer",
+                  desc = paste("A (template) raster with information with regards to the spatial resolution and geographical extent of",
+                               "fireSense_ignitionCovariates. Needs to have number of non-NA cells as attribute",
+                               "(ignitionFitRTM@data@attributes$nonNAs)")),
     createsOutput(objectName = "weatherDataMDCStk", objectClass = "RasterStack",
                   desc = paste("A stack of interpolated monthly drought code data (from 'weatherDataMDC')",
                                "per year, in 'studyAreaLarge' matching the resolution of fitRes."))
@@ -357,15 +356,7 @@ prepFireSenseData <- function(sim) {
       absenceCells <- weatherDT[absenceCells, on = .(rowID)]
       weatherDT <- rbind(weatherDT[n_fires != 0], absenceCells, use.names = TRUE)
       weatherDT[, `:=`(rowID = NULL)]
-
-      ## calculate adjustment for predicted probabilities as the ration of the
-      ## original number of total !is.na() pixels and the new total no. pixels (pres+absence)
-      origNCells <- sum(!is.na(sim$weatherDataMDCStk[[1]][]))
-      newNCells <- length(unique(weatherDT$cells))
-      sim$lambdaRescaleFactor <- newNCells/origNCells
     }
-  } else {
-    sim$lambdaRescaleFactor <- 1
   }
 
   ## join veg data, both for presences and absences - veg data is constant across years
@@ -444,21 +435,13 @@ prepFireSenseData <- function(sim) {
                        stopiffalse = FALSE))
       stop("Rescaling of 'weatherDataPred' didn't work.")
 
-    ## rescaling factor calculated as (newRes[1]/oldRes[1])^2
-    ## IgnitionPredict can use finer scale rasters, as long as predictions are rescaled (P(sim)$rescaleFactor)
-    rescaleFactor <- (res(sim$rasterToMatch)[1]/P(sim)$fitRes)^2
-
-    if (is.null(sim$rescaleFactor)) {   ## the user may want to override this for some reason (e.g. running ignitionFit/Predict for fitted values)
-      sim$rescaleFactor <- rescaleFactor
-    } else {
-      if (rescaleFactor != sim$rescaleFactor) {
-        warning(paste("The rescale factor calculated was", rescaleFactor, "but the user supplied", sim$rescaleFactor))
-        warning("Check if this was intended.")
-      }
-    }
+    sim$fireSense_IgnitionAndEscapeCovariates <- stack(fuelTypesCoverPred, weatherDataPred)
   }
 
-  sim$fireSense_IgnitionAndEscapeCovariates <- stack(fuelTypesCoverPred, weatherDataPred)
+  ## TODO: may need to find a better way of saving no. non-NAs.
+  sim$ignitionFitRTM <- raster(sim$weatherDataMDCStk[[1]])
+  sim$ignitionFitRTM@data@attributes$nonNAs <- sum(!is.na(sim$weatherDataMDCStk[[1]][]))
+
   return(invisible(sim))
 }
 
