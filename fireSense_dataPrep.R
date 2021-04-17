@@ -343,6 +343,8 @@ prepFireSenseData <- function(sim) {
     stop("Something is wrong. Total no. pixelID in table differs from number of non NA pixelID in raster")
   }
 
+  origDataSize <- nrow(weatherDT)
+
   if (!is.na(P(sim)$propAbsences)) {
     weatherDT[, rowID := 1:.N]
     noAbsences <- sum(unique(weatherDT[!is.na(fireYEAR), .(pixelID, fireYEAR, n_fires)])$n_fires) * P(sim)$propAbsences
@@ -438,9 +440,9 @@ prepFireSenseData <- function(sim) {
     sim$fireSense_IgnitionAndEscapeCovariates <- stack(fuelTypesCoverPred, weatherDataPred)
   }
 
-  ## TODO: may need to find a better way of saving no. non-NAs.
+  ## TODO: may need to find a better way of saving no. non-NAs, as they are not exactly the non-NAs in the raster but the  table size
   sim$ignitionFitRTM <- raster(sim$weatherDataMDCStk[[1]])
-  sim$ignitionFitRTM@data@attributes$nonNAs <- sum(!is.na(sim$weatherDataMDCStk[[1]][]))
+  sim$ignitionFitRTM@data@attributes$nonNAs <- origDataSize
 
   return(invisible(sim))
 }
