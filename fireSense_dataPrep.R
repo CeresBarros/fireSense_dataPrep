@@ -194,7 +194,7 @@ prepFireSenseData <- function(sim) {
   weatherDataMDCStk <- Cache(weatherInterpolationWrapper,
                              weatherDataMDC = weatherDataMDC,
                              rasterToMatch = RTMLLowRes,
-                             form = quote("julMDC ~ 1"),
+                             form = quote("meanMDC ~ 1"),
                              cacheRepo = cachePath(sim),
                              userTags = c(cacheTags, "weatherDataMDCStk"),
                              omitArgs = "userTags")
@@ -319,13 +319,13 @@ prepFireSenseData <- function(sim) {
 
   ## change weather column names
   oldNames <- intersect(names(weatherDT), names(sim$weatherDataMDCStk))
-  newNames <- sub("[^[:digit:]]*", "julMDC_yr", oldNames)
+  newNames <- sub("[^[:digit:]]*", "meanMDC_yr", oldNames)
   setnames(weatherDT, old = oldNames, new = newNames)
 
   ## melt climate data years
   weatherDT <- melt(weatherDT, id.vars = c("pixelID", "fireYEAR", "n_fires"),
-                    value.name = "julMDC", variable.name = "year")
-  weatherDT[, year := as.numeric(sub("julMDC_yr", "", year))]
+                    value.name = "meanMDC", variable.name = "year")
+  weatherDT[, year := as.numeric(sub("meanMDC_yr", "", year))]
 
   ## convert weather data year to calendar year
   weatherDT[, year := P(sim)$weatherDataLastYear - year]
@@ -334,7 +334,7 @@ prepFireSenseData <- function(sim) {
   ## also filter match weather and fire year data.
   nofireYears <- setdiff(weatherDT$year, weatherDT$fireYEAR)
   weatherDTFireYrs <- unique(weatherDT[fireYEAR == year])
-  weatherDTNoFireYrs <- unique(weatherDT[year %in% nofireYears, .(pixelID, year, julMDC)])
+  weatherDTNoFireYrs <- unique(weatherDT[year %in% nofireYears, .(pixelID, year, meanMDC)])
 
   weatherDT <- rbind(weatherDTFireYrs, weatherDTNoFireYrs, use.names = TRUE, fill = TRUE)
   weatherDT[is.na(n_fires), n_fires := 0]
@@ -403,7 +403,7 @@ prepFireSenseData <- function(sim) {
     weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
                                    weatherDataMDC = weatherDataMDCPred,
                                    rasterToMatch = sim$rasterToMatch,
-                                   form = quote("julMDC ~ 1"),
+                                   form = quote("meanMDC ~ 1"),
                                    cacheRepo = cachePath(sim),
                                    userTags = c(cacheTags, "weatherDataMDCPredStk"),
                                    omitArgs = "userTags")
@@ -416,7 +416,7 @@ prepFireSenseData <- function(sim) {
                                    userTags = c(cacheTags, "weatherDataMDCPredStk"),
                                    omitArgs = c("userTags"))
 
-    ## export raster with averaged julMDC across years to predict ignitions once
+    ## export raster with averaged meanMDC across years to predict ignitions once
     weatherDataPred <- if (P(sim)$averageWeather4Pred) {
       stack(raster::mean(weatherDataMDCPredStk))
     } else {
@@ -424,9 +424,9 @@ prepFireSenseData <- function(sim) {
     }
 
     if (nlayers(weatherDataPred) > 1) {
-      names(weatherDataPred) <- paste0("julMDC_", names(weatherDataMDCPredStk))
+      names(weatherDataPred) <- paste0("meanMDC_", names(weatherDataMDCPredStk))
     } else {
-      names(weatherDataPred) <- "julMDC"
+      names(weatherDataPred) <- "meanMDC"
     }
 
     ## checks
@@ -730,7 +730,7 @@ prepFireSenseData <- function(sim) {
       FWIoutputs <- data.table(FWIoutputs)
 
       ## average July DC per year
-      weatherDataMDC <- FWIoutputs[, list(julMDC = mean(DC)), by = .(LAT, LONG, YR)]
+      weatherDataMDC <- FWIoutputs[, list(meanMDC = mean(DC)), by = .(LAT, LONG, YR)]
 
       ## change column names, convert to sf
       setnames(weatherDataMDC, c("LAT", "LONG", "YR"),
