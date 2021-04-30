@@ -11,7 +11,7 @@ defineModule(sim, list(
   authors = structure(list(list(given = "Ceres", family = "Barros",
                                 role = c("aut", "cre"), email = "cbarros@mail.ubc.ca")), class = "person"),
   childModules = character(0),
-  version = list(fireSense_dataPrep = "0.0.2"),
+  version = list(fireSense_dataPrep = "0.0.3.9000"),
   timeframe = as.POSIXlt(c(NA, NA)),
   timeunit = "year",
   citation = list("citation.bib"),
