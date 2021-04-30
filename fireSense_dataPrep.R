@@ -21,9 +21,9 @@ defineModule(sim, list(
                   "crayon", "SpaDES.core"),
   parameters = rbind(
     defineParameter("averageWeather4Pred", "logical", FALSE,
-                    desc = paste("Should `weatherDataPred` be an average across layers of 'weatherDataMDCStk'?",
-                                 "Useful when predictions are based on climate averaged across a period.",
-                                 "If FALSE, 'weatherDataPred' will be identical to 'weatherDataMDCStk'")),
+                    desc = paste("Should `weatherDataPred` be an average across layers of 'weatherDataMDCStk',",
+                                 "or, if available, 'weatherDataPred'? Useful when predictions are based on climate averaged across a period.",
+                                 "If FALSE, a stack of weather rasters (like 'weatherDataMDCStk') will be output")),
     defineParameter("fireInitialTime", "numeric", NA,
                     desc = paste("The event time that the first fire disturbance event occurs",
                                  "If NA, the module will only prepare data once, during `init`")),
@@ -36,10 +36,12 @@ defineModule(sim, list(
                           "resolution of the default weather data exported by BioSIM for LIM study area")),
     defineParameter("loadWeatherInChunks", "logical", FALSE, NA, NA,
                     desc = paste("Weather data can be extremely large and require being loaded in chunks. This defaults to FALSE,",
-                                 "but if the weatherDataMDC file is > 4Gb, will be set to TRUE")),
+                                 "but if the weatherDataMDC file is > 4Gb, will be set to TRUE.",
+                                 "Used to make default 'weatherDataMDC'")),
     defineParameter("prepPredictionObjs", "logical", FALSE, NA, NA,
-                    desc = paste("Should objects for fireSense_IgnitionPredict be prepared? If TRUE 'fuelTypesCoverPred'",
-                                 "and 'weatherDataPred' will be exported")),
+                    desc = paste("Should objects for fireSense_IgnitionPredict be prepared? If TRUE 'fireSense_IgnitionAndEscapeCovariates'",
+                                 "will be exported. If averageWeather4Pred is TRUE then weather values are an averaged of weather data used",
+                                 "for fitting. If 'weatherDataPred' is not supplied prediction data will come from fitting data.")),
     defineParameter("propAbsences", "numeric", 2, NA, NA,
                     desc = paste("Should fire absences be generated? Will sample the number of fire presences * propAbsences",
                                  "(across all years/locations). Defaults to the double of the total number of fires in sim$fireLocations.",
@@ -47,9 +49,10 @@ defineModule(sim, list(
     defineParameter("timePeriod", "numeric", 1960:1990, NA, NA,
                     paste("The time period comprising the fire and weather data on which fire frequency",
                           "(i.e. ignition) model - see Marchal et al 2017 - will be fitted.",
-                          "Defaults to 1960 to 1990")),
+                          "Defaults to 1960 to 1990. Used to make default 'weatherDataMDC'")),
     defineParameter("weatherDataLastYear", "numeric", 1990, NA, NA,
-                    "The last calendar year of the weather data. Defaults to 1990"),
+                    paste("The last calendar year of the weather data.",
+                          "Defaults to 1990. Used to make default 'weatherDataMDC'")),
     defineParameter(".plotInitialTime", "numeric", NA, NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
     defineParameter(".plotInterval", "numeric", NA, NA, NA,
@@ -96,7 +99,12 @@ defineModule(sim, list(
     expectsInput(objectName = "weatherDataMDCCRS", objectClass = "character",
                  desc = paste("The original projection of 'weatherDataMDC'. Must be supplied if weatherDataMDC is",
                               "supplied by the user or a module. If using default 'weatherDataMDC', 'weatherDataMDCCRS'",
-                              "defaults to '+proj=longlat +datum=WGS84 +no_defs', the projection used by BioSIM"))
+                              "defaults to '+proj=longlat +datum=WGS84 +no_defs', the projection used by BioSIM")),
+    expectsInput(objectName = "weatherDataPred", objectClass = "sf",
+                 desc = paste("OPTIONAL. Weather point data used for prediction with average drought code (DC).",
+                              "Must be in the SAME FORMAT as 'weatherDataMDC'. If not supplied, data for prediction will",
+                              "come from fitting data"),
+                 sourceURL = NA)
   ),
   outputObjects = bindrows(
     createsOutput(objectName = "fireSense_ignitionCovariates", objectClass = "data.frame",
@@ -169,6 +177,15 @@ prepFireSenseData <- function(sim) {
   if (is.null(sim$fuelTypesMaps)) {
     stop("'sim$fuelTypesMaps' needs to be supplied.")
   }
+
+  if (all(isTRUE(P(sim)$prepPredictionObjs),
+          is.null(sim$weatherDataPred))) {
+    message(blue("'prepPredictionObjs' is TRUE, but 'weatherDataPred' was not supplied."))
+    message(blue("Fitting data will be used for prediction"))
+    sim$weatherDataPred <- sim$weatherDataMDC
+  }
+
+
 
   ## STUDY AREA PREP -----------------------------------------
   ## reduce resolution of rasterToMatchLarge and make a polygon grid
@@ -392,41 +409,37 @@ prepFireSenseData <- function(sim) {
     }, RTM = sim$rasterToMatch)
     fuelTypesCoverPred <- raster::stack(fuelTypesCoverPred)
 
-
-    weatherDataMDCPred <- Cache(st_transform,
-                                x = sim$weatherDataMDC,
-                                crs = as.character(crs(sim$rasterToMatch)),
-                                cacheRepo = cachePath(sim),
-                                userTags = c(cacheTags, "weatherDataMDCPredStk"),
-                                omitArgs = "userTags")
-
-    weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
-                                   weatherDataMDC = weatherDataMDCPred,
-                                   rasterToMatch = sim$rasterToMatch,
-                                   form = quote("meanMDC ~ 1"),
-                                   cacheRepo = cachePath(sim),
-                                   userTags = c(cacheTags, "weatherDataMDCPredStk"),
-                                   omitArgs = "userTags")
-
-    weatherDataMDCPredStk <- Cache(postProcess,
-                                   x = weatherDataMDCPredStk,
-                                   studyArea = sim$studyArea,
-                                   filename2 = NULL,
-                                   cacheRepo = cachePath(sim),
-                                   userTags = c(cacheTags, "weatherDataMDCPredStk"),
-                                   omitArgs = c("userTags"))
-
     ## export raster with averaged meanMDC across years to predict ignitions once
-    weatherDataPred <- if (P(sim)$averageWeather4Pred) {
-      stack(raster::mean(weatherDataMDCPredStk))
-    } else {
-      weatherDataMDCPredStk
-    }
+      weatherDataMDCPred <- Cache(st_transform,
+                                  x = sim$weatherDataPred,
+                                  crs = as.character(crs(sim$rasterToMatch)),
+                                  cacheRepo = cachePath(sim),
+                                  userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                  omitArgs = "userTags")
 
-    if (nlayers(weatherDataPred) > 1) {
-      names(weatherDataPred) <- paste0("meanMDC_", names(weatherDataMDCPredStk))
-    } else {
+      weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
+                                     weatherDataMDC = weatherDataMDCPred,
+                                     rasterToMatch = sim$rasterToMatch,
+                                     form = quote("meanMDC ~ 1"),
+                                     cacheRepo = cachePath(sim),
+                                     userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                     omitArgs = "userTags")
+
+      weatherDataMDCPredStk <- Cache(postProcess,
+                                     x = weatherDataMDCPredStk,
+                                     studyArea = sim$studyArea,
+                                     filename2 = NULL,
+                                     cacheRepo = cachePath(sim),
+                                     userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                     omitArgs = c("userTags"))
+
+      names(weatherDataMDCPredStk) <- paste0("meanMDC_", names(weatherDataMDCPredStk))
+
+    if (P(sim)$averageWeather4Pred) {
+      weatherDataPred <- stack(raster::mean(weatherDataMDCPredStk))
       names(weatherDataPred) <- "meanMDC"
+    } else {
+      weatherDataPred <- weatherDataMDCPredStk
     }
 
     ## checks
