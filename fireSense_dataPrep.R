@@ -185,7 +185,12 @@ prepFireSenseData <- function(sim) {
     sim$weatherDataPred <- sim$weatherDataMDC
   }
 
-
+  if (!identical(class(sim$weatherDataPred), class(sim$weatherDataMDC))) {
+    stop("'weatherDataPred' and 'weatherDataMDC' must have the same (sf) class")
+  }
+  if (!identical(st_crs(sim$weatherDataPred), st_crs(sim$weatherDataMDC))) {
+    stop("'weatherDataPred' and 'weatherDataMDC' must be in the same projection")
+  }
 
   ## STUDY AREA PREP -----------------------------------------
   ## reduce resolution of rasterToMatchLarge and make a polygon grid
