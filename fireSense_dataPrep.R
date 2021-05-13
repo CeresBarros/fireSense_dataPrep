@@ -415,30 +415,30 @@ prepFireSenseData <- function(sim) {
     fuelTypesCoverPred <- raster::stack(fuelTypesCoverPred)
 
     ## export raster with averaged meanMDC across years to predict ignitions once
-      weatherDataMDCPred <- Cache(st_transform,
-                                  x = sim$weatherDataPred,
-                                  crs = as.character(crs(sim$rasterToMatch)),
-                                  cacheRepo = cachePath(sim),
-                                  userTags = c(cacheTags, "weatherDataMDCPredStk"),
-                                  omitArgs = "userTags")
+    weatherDataMDCPred <- Cache(st_transform,
+                                x = sim$weatherDataPred,
+                                crs = as.character(crs(sim$rasterToMatch)),
+                                cacheRepo = cachePath(sim),
+                                userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                omitArgs = "userTags")
 
-      weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
-                                     weatherDataMDC = weatherDataMDCPred,
-                                     rasterToMatch = sim$rasterToMatch,
-                                     form = quote("meanMDC ~ 1"),
-                                     cacheRepo = cachePath(sim),
-                                     userTags = c(cacheTags, "weatherDataMDCPredStk"),
-                                     omitArgs = "userTags")
+    weatherDataMDCPredStk <- Cache(weatherInterpolationWrapper,
+                                   weatherDataMDC = weatherDataMDCPred,
+                                   rasterToMatch = sim$rasterToMatch,
+                                   form = quote("meanMDC ~ 1"),
+                                   cacheRepo = cachePath(sim),
+                                   userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                   omitArgs = "userTags")
 
-      weatherDataMDCPredStk <- Cache(postProcess,
-                                     x = weatherDataMDCPredStk,
-                                     studyArea = sim$studyArea,
-                                     filename2 = NULL,
-                                     cacheRepo = cachePath(sim),
-                                     userTags = c(cacheTags, "weatherDataMDCPredStk"),
-                                     omitArgs = c("userTags"))
+    weatherDataMDCPredStk <- Cache(postProcess,
+                                   x = weatherDataMDCPredStk,
+                                   studyArea = sim$studyArea,
+                                   filename2 = NULL,
+                                   cacheRepo = cachePath(sim),
+                                   userTags = c(cacheTags, "weatherDataMDCPredStk"),
+                                   omitArgs = c("userTags"))
 
-      names(weatherDataMDCPredStk) <- paste0("meanMDC_", names(weatherDataMDCPredStk))
+    names(weatherDataMDCPredStk) <- paste0("meanMDC_", names(weatherDataMDCPredStk))
 
     if (P(sim)$averageWeather4Pred) {
       weatherDataPred <- stack(raster::mean(weatherDataMDCPredStk))
