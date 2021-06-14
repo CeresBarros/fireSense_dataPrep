@@ -299,9 +299,15 @@ prepFireSenseData <- function(sim) {
     sim$weatherDataMDCStk <- weatherDataMDCStk
   }
 
-  sim$fireLocations <- as_Spatial(sim$fireLocations[, c("ID", "YEAR")])
-  sim$fireLocations <- Cache(postProcess,
-                             x = sim$fireLocations,
+  if (!is(sim$fireLocations, "SpatialPointsDataFrame")) {
+    fireLocations <- as_Spatial(sim$fireLocations[, c("ID", "YEAR")])
+  } else {
+    fireLocations <- sim$fireLocations[, c("ID", "YEAR")]
+  }
+
+  ## to make sure it's only in SAL
+  fireLocations <- Cache(postProcess,
+                         x = fireLocations,
                          studyArea = sim$studyAreaLarge,
                          filename2 = NULL,
                          cacheRepo = cachePath(sim),
@@ -310,9 +316,9 @@ prepFireSenseData <- function(sim) {
 
   ## STATISTICAL MODEL DATA PREP --------------------------------------
   ## Joining all the data into data.table
-  if (!compareCRS(sim$fireLocations, sim$weatherDataMDCStk)) {
+  if (!compareCRS(fireLocations, sim$weatherDataMDCStk)) {
     message(blue("Reprojecting 'fireLocations' to rasterToMatch projection"))
-    sim$fireLocations <- spTransform(sim$fireLocations, CRSobj = crs(sim$weatherDataMDCStk))
+    fireLocations <- spTransform(fireLocations, CRSobj = crs(sim$weatherDataMDCStk))
   }
 
   if (!compareRaster(sim$weatherDataMDCStk, sim$fuelTypesCoverStk, res = TRUE, stopiffalse = FALSE)) {
@@ -323,8 +329,8 @@ prepFireSenseData <- function(sim) {
   ## fire presences and absences - first make a wide DT with presences/absences per year in separate columns
   ## add other pixels, melt, then add as absences according to P(sim)$propAbsences * the number of presences per year
   ## or keep all background data (weather data for absences added after)
-  presAbsnDT <- data.table(pixelID = cellFromXY(sim$weatherDataMDCStk, sim$fireLocations),
-                           fireYEAR = as.numeric(sim$fireLocations$YEAR))
+  presAbsnDT <- data.table(pixelID = cellFromXY(sim$weatherDataMDCStk, fireLocations),
+                           fireYEAR = as.numeric(fireLocations$YEAR))
   ## expand to add absences (all background data) to each year
   presAbsnDT <- suppressMessages(dcast(presAbsnDT, pixelID ~ fireYEAR))     ## will sum fires per cell/year (pixelID with two fires appear twice in the data above)
   presAbsnDT <- presAbsnDT[data.table(pixelID = which(!is.na(sim$weatherDataMDCStk[[1]][]))), on = .(pixelID)]   ## add all possible pixelID.
