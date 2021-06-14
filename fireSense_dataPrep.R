@@ -302,11 +302,11 @@ prepFireSenseData <- function(sim) {
   sim$fireLocations <- as_Spatial(sim$fireLocations[, c("ID", "YEAR")])
   sim$fireLocations <- Cache(postProcess,
                              x = sim$fireLocations,
-                             studyArea = sim$studyAreaLarge,
-                             filename2 = NULL,
-                             cacheRepo = cachePath(sim),
-                             userTags = c(cacheTags, "fireLocationsRTM"),
-                             omitArgs = c("userTags"))
+                         studyArea = sim$studyAreaLarge,
+                         filename2 = NULL,
+                         cacheRepo = cachePath(sim),
+                         userTags = c(cacheTags, "fireLocationsRTM"),
+                         omitArgs = c("userTags"))
 
   ## STATISTICAL MODEL DATA PREP --------------------------------------
   ## Joining all the data into data.table
