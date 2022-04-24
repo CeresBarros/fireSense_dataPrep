@@ -8,13 +8,13 @@ calcFuelCoverWrapper <- function(fuelTypesStk, RTMPolyGrid,
   if (parallel) {
     dots <- list(...)
     if (is.null(dots$strategy))
-      dots$strategy <- multiprocess
+      dots$strategy <- multisession
     if (is.null(dots$gc))
       dots$gc <- TRUE
 
     dots$globals <- list(fuelTypesStk = fuelTypesStk, RTMPolyGrid = RTMPolyGrid)
 
-    do.call("plan", dots)
+    do.call(plan, dots)
     fuelTypesCover <- future_lapply(unstack(fuelTypesStk), FUN = function(ras) {
       exact_extract(ras, RTMPolyGrid, "count")
     })
