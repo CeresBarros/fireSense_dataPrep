@@ -18,7 +18,7 @@ defineModule(sim, list(
   documentation = deparse(list("README.txt", "fireSense_dataPrep.Rmd")),
   reqdPkgs = list("sf", "raster", "quickPlot", "data.table",
                   "gstat", "future", "future.apply", "exactextractr",
-                  "crayon", "SpaDES.core"),
+                  "crayon", "SpaDES.core", "reproducible"),
   parameters = rbind(
     defineParameter("averageWeather4Pred", "logical", FALSE,
                     desc = paste("Should `weatherDataPred` be an average across layers of 'weatherDataMDCStk',",
